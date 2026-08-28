@@ -269,7 +269,7 @@
     text-wrap: balance;
     margin-bottom: 0.5rem;
   }
-  .scenario p { max-width: 62ch; color: var(--ink-mid); }
+  .scenario p { color: var(--ink-mid); }
 
   .listing-label {
     display: flex; align-items: baseline; gap: 0.6rem;
@@ -383,22 +383,21 @@
   .verdict[data-state="pass"] .verdict-head h3 { color: var(--pass); }
   .verdict[data-state="fail"] .verdict-head h3 { color: var(--fault); }
   .verdict-head .where { font-family: var(--mono); font-size: var(--s-1); color: var(--ink-soft); }
-  .verdict .why { max-width: 66ch; }
   .verdict .why em, .holds em, .review-item em, .review-line em, .done .review-ref em { font-style: normal; font-family: var(--mono); font-size: 0.9em; background: var(--surface-sunk); padding: 0.05em 0.3em; border-radius: 2px; overflow-wrap: anywhere; }
 
   .holds { margin-top: 1.2rem; border-top: 1px solid var(--rule-soft); padding-top: 0.9rem; }
   .holds > .eyebrow { display: block; margin-bottom: 0.55rem; }
   .holds ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
-  .holds li { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: 0.5rem; font-size: var(--s-1); color: var(--ink-mid); max-width: 72ch; }
+  .holds li { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: 0.5rem; font-size: var(--s-1); color: var(--ink-mid); }
   .holds .ln { font-family: var(--mono); color: var(--pass); font-variant-numeric: tabular-nums; }
 
   .verdict-foot { margin-top: 1.4rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
-  .verdict-foot .ref { font-size: var(--s-1); color: var(--ink-soft); margin-right: auto; max-width: 48ch; }
+  .verdict-foot .ref { font-size: var(--s-1); color: var(--ink-soft); margin-right: auto; }
 
   /* ─── summary ───────────────────────────────────────────────── */
   .done { padding: 2.25rem 1.25rem; }
   .done h2 { font-family: var(--disp); font-size: var(--s3); font-weight: 600; line-height: 1.05; margin-bottom: 0.5rem; text-wrap: balance; }
-  .done > p { max-width: 60ch; color: var(--ink-mid); }
+  .done > p { color: var(--ink-mid); }
 
   .sumtable { width: 100%; border-collapse: collapse; margin: 1.6rem 0 0.4rem; font-size: var(--s-1); }
   .sumtable th, .sumtable td { text-align: left; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--rule-soft); }
@@ -479,7 +478,7 @@
     padding: 0.85rem 1rem;
   }
   .review-item h3 { font-family: var(--disp); font-size: var(--s-0); font-weight: 600; margin-bottom: 0.25rem; }
-  .review-item .why { max-width: 66ch; margin: 0.35rem 0; }
+  .review-item .why { margin: 0.35rem 0; }
   .review-line { font-size: var(--s-1); color: var(--ink-mid); }
   .review-line .ln { font-family: var(--mono); color: var(--fault); font-variant-numeric: tabular-nums; margin-right: 0.4rem; }
   .review-ref { font-size: var(--s-1); color: var(--ink-soft); }
@@ -487,7 +486,7 @@
   /* ─── field guide ───────────────────────────────────────────── */
   .guide { padding: 1.4rem 1.25rem 1.75rem; }
   .guide h2 { font-family: var(--disp); font-size: var(--s2); font-weight: 600; line-height: 1.15; margin-bottom: 0.4rem; }
-  .guide-sub { color: var(--ink-mid); max-width: 62ch; margin-bottom: 1rem; }
+  .guide-sub { color: var(--ink-mid); margin-bottom: 1rem; }
   .guide-search {
     width: 100%;
     padding: 0.55rem 0.8rem;
