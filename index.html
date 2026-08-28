@@ -397,7 +397,7 @@
   /* ─── summary ───────────────────────────────────────────────── */
   .done { padding: 2.25rem 1.25rem; }
   .done h2 { font-family: var(--disp); font-size: var(--s3); font-weight: 600; line-height: 1.05; margin-bottom: 0.5rem; text-wrap: balance; }
-  .done > p { color: var(--ink-mid); }
+  .done > p { color: var(--ink-mid); margin-bottom: 0.3rem; }
 
   .sumtable { width: 100%; border-collapse: collapse; margin: 1.6rem 0 0.4rem; font-size: var(--s-1); }
   .sumtable th, .sumtable td { text-align: left; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--rule-soft); }
@@ -2144,9 +2144,10 @@ function renderExamResult() {
   const calib =
     "Sure on " + sureN + (sureN ? " — " + sureRight + " right (" + Math.round((sureRight / sureN) * 100) + "%)" : "") +
     ". Not sure on " + (total - sureN) +
-    (total - sureN ? " — " + unsureRight + " right" : "") + "." +
-    (sureWrong ? " <strong>" + sureWrong + " confident miss" + (sureWrong === 1 ? "" : "es") +
-      "</strong> — misconceptions, not gaps. Drill those first." : " No confident misses.");
+    (total - sureN ? " — " + unsureRight + " right" : "") + ".";
+  const calibMiss =
+    sureWrong ? "<strong>" + sureWrong + " confident miss" + (sureWrong === 1 ? "" : "es") +
+      "</strong> — misconceptions, not gaps. Drill those first." : "No confident misses.";
 
   const rows = Object.keys(DOMAINS).map(k => {
     const got = exam.answers.filter(a => { const f = byId(a.id); return f && f.domain === k; });
@@ -2187,12 +2188,14 @@ function renderExamResult() {
   stage.innerHTML =
     '<article class="card fade-in"><div class="done">' +
       "<h2>" + scaled + " / 1000 — " + (pass ? "pass" : "not yet") + "</h2>" +
-      "<p>" + right + " of " + total + " faults found in " + took + ". The bar is 700 — " +
+      "<p>" + right + " of " + total + " faults found in " + took + ".</p>" +
+      "<p>The bar is 700 — " +
         (pass ? (scaled === 700 ? "met exactly, nothing to spare." : "cleared by " + (scaled - 700) + ".")
-              : (700 - scaled) + " short. The misses below are the revision list.") +
-        (duel ? " <strong>" + duel + "</strong>" : "") +
-        (store.examRuns > 1 ? " Best so far: " + store.examBest + "." : "") + "</p>" +
+              : (700 - scaled) + " short. The misses below are the revision list.") + "</p>" +
+        (duel ? "<p><strong>" + duel + "</strong></p>" : "") +
+        (store.examRuns > 1 ? "<p>Best so far: " + store.examBest + ".</p>" : "") +
       "<p>" + calib + "</p>" +
+      "<p>" + calibMiss + "</p>" +
       '<p class="trace" aria-hidden="true">' + trace + "</p>" +
       '<p class="review-ref">🟩 sure &amp; right · 🟨 unsure &amp; right · 🟧 unsure &amp; wrong · 🟥 sure &amp; wrong</p>' +
       '<p class="review-ref">Anyone who opens <em>' + esc(challengeUrl) + "</em> sits this exact paper against your score.</p>" +
