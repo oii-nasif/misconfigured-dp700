@@ -1,0 +1,1769 @@
+<title>Misconfigured — a DP-700 fault-finding drill</title>
+
+<style>
+  /* ─── tokens ────────────────────────────────────────────────── */
+  :root {
+    color-scheme: light;
+
+    --ground:      #EEF1F4;
+    --surface:     #FFFFFF;
+    --surface-sunk:#E4E8ED;
+    --rule:        #CFD6DE;
+    --rule-soft:   #E1E6EB;
+
+    --ink:         #161B22;
+    --ink-mid:     #4C5866;
+    --ink-soft:    #6E7C8C;
+
+    --accent:      #0E7C86;
+    --accent-deep: #0A5C64;
+    --accent-wash: #DCEBEC;
+
+    --pass:        #3F8B57;
+    --pass-wash:   #DFEDE3;
+    --fault:       #BB3F35;
+    --fault-wash:  #F6E2DF;
+    --amber:       #A8741A;
+    --amber-wash:  #F5E9D3;
+
+    --mono: "Cascadia Mono", Consolas, "SF Mono", "Menlo", "DejaVu Sans Mono", monospace;
+    --body: Candara, Optima, "Gill Sans Nova", "Gill Sans", "Segoe UI", system-ui, sans-serif;
+    --disp: "Bahnschrift SemiCondensed", "Bahnschrift", "Avenir Next Condensed",
+            "HelveticaNeue-CondensedBold", "Roboto Condensed", var(--body);
+
+    --s-1:  0.8125rem;
+    --s-0:  1rem;
+    --s1:   1.1875rem;
+    --s2:   1.5rem;
+    --s3:   2.125rem;
+
+    --gut: clamp(1rem, 3vw, 2.5rem);
+    --card-radius: 3px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --ground:      #12171D;
+      --surface:     #1A2129;
+      --surface-sunk:#0E1318;
+      --rule:        #2E3A46;
+      --rule-soft:   #232D37;
+      --ink:         #E4E9EE;
+      --ink-mid:     #A3B0BD;
+      --ink-soft:    #7C8B99;
+      --accent:      #3FB4B8;
+      --accent-deep: #6FD3D5;
+      --accent-wash: #10333A;
+      --pass:        #62B87C;
+      --pass-wash:   #16301F;
+      --fault:       #E4695C;
+      --fault-wash:  #351815;
+      --amber:       #D99A2B;
+      --amber-wash:  #33260E;
+    }
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ground:#EEF1F4; --surface:#FFFFFF; --surface-sunk:#E4E8ED;
+    --rule:#CFD6DE; --rule-soft:#E1E6EB;
+    --ink:#161B22; --ink-mid:#4C5866; --ink-soft:#6E7C8C;
+    --accent:#0E7C86; --accent-deep:#0A5C64; --accent-wash:#DCEBEC;
+    --pass:#3F8B57; --pass-wash:#DFEDE3; --fault:#BB3F35; --fault-wash:#F6E2DF;
+    --amber:#A8741A; --amber-wash:#F5E9D3;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground:#12171D; --surface:#1A2129; --surface-sunk:#0E1318;
+    --rule:#2E3A46; --rule-soft:#232D37;
+    --ink:#E4E9EE; --ink-mid:#A3B0BD; --ink-soft:#7C8B99;
+    --accent:#3FB4B8; --accent-deep:#6FD3D5; --accent-wash:#10333A;
+    --pass:#62B87C; --pass-wash:#16301F; --fault:#E4695C; --fault-wash:#351815;
+    --amber:#D99A2B; --amber-wash:#33260E;
+  }
+
+  /* ─── frame ─────────────────────────────────────────────────── */
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: var(--s-0);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .masthead {
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 0.6rem var(--gut);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 1rem;
+  }
+  .wordmark {
+    font-family: var(--disp);
+    font-size: var(--s2);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  .wordmark b { color: var(--accent); font-weight: 600; }
+  .masthead .sub {
+    font-size: var(--s-1);
+    color: var(--ink-soft);
+    line-height: 1.3;
+  }
+
+  .notice {
+    padding: 0.55rem var(--gut);
+    font-size: var(--s-1);
+    border-bottom: 1px solid var(--rule);
+    background: var(--amber-wash);
+    color: var(--ink-mid);
+  }
+  .notice b { color: var(--amber); font-family: var(--disp); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.6875rem; }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 16.5rem minmax(0, 1fr);
+    gap: clamp(1.25rem, 3vw, 2.75rem);
+    align-items: start;
+    padding: clamp(1.25rem, 3vw, 2.25rem) var(--gut) 4rem;
+    max-width: 78rem;
+    margin-inline: auto;
+  }
+  @media (max-width: 62rem) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────── */
+  .rail { position: sticky; top: 1.25rem; display: flex; flex-direction: column; gap: 1.5rem; }
+  @media (max-width: 62rem) { .rail { position: static; } }
+
+  .eyebrow {
+    font-family: var(--disp);
+    font-size: var(--s-1);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .meters { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.7rem; }
+  .meter { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0.35rem 0; cursor: pointer; color: inherit; font: inherit; }
+  .meter-head { display: flex; align-items: baseline; gap: 0.5rem; }
+  .meter-name { font-size: var(--s-1); font-weight: 600; flex: 1; }
+  .meter-weight { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .meter-track { height: 6px; background: var(--surface-sunk); margin-top: 0.4rem; border: 1px solid var(--rule-soft); position: relative; overflow: hidden; }
+  .meter-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width 420ms cubic-bezier(.2,.7,.3,1); }
+  .meter-first { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-deep); opacity: 0.55; transition: width 420ms cubic-bezier(.2,.7,.3,1); }
+  .meter-count { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-soft); margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
+  .meter[aria-pressed="true"] .meter-name { color: var(--accent); }
+  .meter[aria-pressed="true"] .meter-track { border-color: var(--accent); }
+  .meter:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .tally { border-top: 1px solid var(--rule); padding-top: 1.1rem; display: flex; gap: 1.75rem; }
+  .tally div { display: flex; flex-direction: column; }
+  .tally .n { font-family: var(--disp); font-size: var(--s3); line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tally .n.hot { color: var(--amber); }
+  .tally .k { font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-top: 0.35rem; }
+
+  .railfoot { border-top: 1px solid var(--rule); padding-top: 1rem; font-size: var(--s-1); color: var(--ink-soft); display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+  .railfoot kbd {
+    font-family: var(--mono); font-size: 0.6875rem;
+    border: 1px solid var(--rule); border-bottom-width: 2px;
+    padding: 0.05em 0.4em; border-radius: 2px; background: var(--surface);
+    color: var(--ink-mid);
+  }
+  .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; text-align: left; }
+  .linkbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .linkbtn[data-arm="1"] { color: var(--fault); }
+
+  /* ─── card ──────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--card-radius);
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .card-head .objective { font-size: var(--s-1); color: var(--ink-mid); margin-right: auto; }
+  .card-head .objective span { color: var(--ink-soft); }
+  .card-head .counter { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .card-head .again { font-family: var(--disp); font-size: 0.625rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); border: 1px solid currentColor; padding: 0.05em 0.4em; }
+
+  .scenario { padding: 1.4rem 1.25rem 0.2rem; }
+  .scenario h2 {
+    font-family: var(--disp);
+    font-size: clamp(1.4rem, 2.6vw, var(--s2));
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: 0.005em;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  .scenario p { max-width: 62ch; color: var(--ink-mid); }
+
+  .listing-label {
+    display: flex; align-items: baseline; gap: 0.6rem;
+    padding: 1.3rem 1.25rem 0.45rem;
+    font-family: var(--mono); font-size: 0.6875rem;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .listing-label::after { content: ""; flex: 1; height: 1px; background: var(--rule-soft); }
+
+  .listing {
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    background: var(--surface-sunk);
+    overflow-x: auto;
+  }
+  .line {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid var(--rule-soft);
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .listing .line:last-child { border-bottom: 0; }
+  .line-no {
+    font-family: var(--mono); font-size: var(--s-1);
+    color: var(--ink-soft); font-variant-numeric: tabular-nums;
+    padding: 0.55rem 0.75rem 0.55rem 0;
+    text-align: right;
+    border-right: 1px solid var(--rule-soft);
+    background: color-mix(in srgb, var(--ground) 55%, transparent);
+    user-select: none;
+  }
+  .line-code {
+    font-family: var(--mono); font-size: var(--s-1); line-height: 1.5;
+    padding: 0.55rem 1rem;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    min-width: 0;
+  }
+  .line-code .cm { color: var(--ink-soft); }
+  .line:hover:not(:disabled) { background: var(--surface); border-left-color: var(--accent); }
+  .line:hover:not(:disabled) .line-no { color: var(--accent); }
+  .line:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .line:disabled { cursor: default; }
+
+  .line[data-mark="fault"] { border-left-color: var(--fault); background: var(--fault-wash); }
+  .line[data-mark="fault"] .line-no { color: var(--fault); font-weight: 700; }
+  .line[data-mark="ok"] { opacity: 0.62; }
+  .line[data-mark="picked-ok"] { border-left-color: var(--ink-soft); background: var(--surface); opacity: 0.8; }
+  .tag {
+    font-family: var(--disp); font-size: 0.625rem; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    border: 1px solid currentColor; padding: 0.05em 0.4em; margin-left: 0.6rem;
+    vertical-align: 1px; white-space: nowrap;
+  }
+  .tag.f { color: var(--fault); }
+  .tag.p { color: var(--ink-soft); }
+
+  .prompt { padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
+  .prompt .q { font-weight: 600; margin-right: auto; }
+
+  .btn {
+    font-family: var(--disp); font-size: var(--s-1); font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.5rem 1.1rem;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--ink-mid);
+    cursor: pointer;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); color: var(--surface); }
+
+  .hint {
+    margin: 0 1.25rem 1.25rem;
+    border-left: 3px solid var(--amber);
+    background: var(--amber-wash);
+    padding: 0.7rem 1rem;
+    font-size: var(--s-1);
+    color: var(--ink-mid);
+  }
+  .hint strong { font-family: var(--disp); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.6875rem; color: var(--amber); display: block; }
+
+  /* ─── verdict ───────────────────────────────────────────────── */
+  .verdict { border-top: 1px solid var(--rule); padding: 1.35rem 1.25rem 1.5rem; }
+  .verdict[data-state="pass"] { background: color-mix(in srgb, var(--pass-wash) 55%, var(--surface)); }
+  .verdict[data-state="fail"] { background: color-mix(in srgb, var(--fault-wash) 45%, var(--surface)); }
+  .verdict-head { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+  .verdict-head h3 { font-family: var(--disp); font-size: var(--s1); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .verdict[data-state="pass"] .verdict-head h3 { color: var(--pass); }
+  .verdict[data-state="fail"] .verdict-head h3 { color: var(--fault); }
+  .verdict-head .where { font-family: var(--mono); font-size: var(--s-1); color: var(--ink-soft); }
+  .verdict .why { max-width: 66ch; }
+  .verdict .why em, .holds em { font-style: normal; font-family: var(--mono); font-size: 0.9em; background: var(--surface-sunk); padding: 0.05em 0.3em; border-radius: 2px; }
+
+  .holds { margin-top: 1.2rem; border-top: 1px solid var(--rule-soft); padding-top: 0.9rem; }
+  .holds > .eyebrow { display: block; margin-bottom: 0.55rem; }
+  .holds ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+  .holds li { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: 0.5rem; font-size: var(--s-1); color: var(--ink-mid); max-width: 72ch; }
+  .holds .ln { font-family: var(--mono); color: var(--pass); font-variant-numeric: tabular-nums; }
+
+  .verdict-foot { margin-top: 1.4rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
+  .verdict-foot .ref { font-size: var(--s-1); color: var(--ink-soft); margin-right: auto; max-width: 48ch; }
+
+  /* ─── summary ───────────────────────────────────────────────── */
+  .done { padding: 2.25rem 1.25rem; }
+  .done h2 { font-family: var(--disp); font-size: var(--s3); font-weight: 600; line-height: 1.05; margin-bottom: 0.5rem; text-wrap: balance; }
+  .done > p { max-width: 60ch; color: var(--ink-mid); }
+
+  .sumtable { width: 100%; border-collapse: collapse; margin: 1.6rem 0 0.4rem; font-size: var(--s-1); }
+  .sumtable th, .sumtable td { text-align: left; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--rule-soft); }
+  .sumtable th { font-family: var(--disp); font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+  .sumtable td.num, .sumtable th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .sumtable tfoot td { font-weight: 600; border-bottom: 0; }
+
+  .missed { margin-top: 1.5rem; border-left: 3px solid var(--amber); background: var(--amber-wash); padding: 0.8rem 1rem; }
+  .missed .eyebrow { display: block; color: var(--amber); margin-bottom: 0.4rem; }
+  .missed ul { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; font-size: var(--s-1); color: var(--ink-mid); }
+  .missed li::before { content: "— "; color: var(--ink-soft); }
+
+  .colophon {
+    padding: 0.7rem var(--gut) 1.1rem;
+    max-width: 78rem;
+    margin-inline: auto;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+  }
+  .colophon a { color: var(--accent); }
+
+  .fade-in { animation: fade 300ms ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in { animation: none; }
+    .meter-fill, .meter-first { transition: none; }
+    * { scroll-behavior: auto !important; }
+  }
+
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+
+<header class="masthead">
+  <div class="wordmark">Mis<b>configured</b></div>
+  <p class="sub">Exam DP-700 · Fabric data engineering</p>
+</header>
+
+<div id="notice"></div>
+
+<main class="shell">
+  <aside class="rail">
+    <div>
+      <div class="eyebrow" id="domains-label">Exam domains</div>
+      <div class="meters" id="meters" role="group" aria-labelledby="domains-label"></div>
+    </div>
+
+    <div class="tally">
+      <div><span class="n" id="t-found">0</span><span class="k">Found</span></div>
+      <div><span class="n" id="t-first">0%</span><span class="k">First try</span></div>
+      <div><span class="n" id="t-streak">0</span><span class="k">Streak</span></div>
+    </div>
+
+    <div class="railfoot">
+      <p>Press <kbd>1</kbd>–<kbd>9</kbd> to flag a line, <kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>H</kbd> for a hint, <kbd>N</kbd> to skip.</p>
+      <button class="linkbtn" id="reset" type="button">Reset progress</button>
+    </div>
+  </aside>
+
+  <section id="stage"></section>
+</main>
+
+<p class="sr" id="announce" role="status" aria-live="polite"></p>
+
+<footer class="colophon">
+  Faults follow the skills measured in the official <a href="https://learn.microsoft.com/en-us/credentials/certifications/resources/study-guides/dp-700">DP-700 study guide</a>. Fabric ships fast — verify against current docs before an exam sitting. Not affiliated with Microsoft.
+</footer>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════════
+   Domains — names and weights verbatim from the skills measured
+   ═══════════════════════════════════════════════════════════════ */
+const DOMAINS = {
+  implement: { name: "Implement & manage", weight: "30–35%" },
+  ingest:    { name: "Ingest & transform", weight: "30–35%" },
+  monitor:   { name: "Monitor & optimize", weight: "30–35%" }
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   Fault bank
+   ───────────────────────────────────────────────────────────────
+   id        stable slug, also the progress key. Never rename one —
+             that silently orphans a learner's progress.
+   lines     2–9 strings. "#cm(...)" marks a trailing comment.
+   fault     1-BASED line number of the broken line.
+   why       trusted authored HTML; <em> renders as inline code.
+   holds     one { line, text } per NON-fault line, explicitly
+             numbered. validate() enforces exact coverage, so a
+             reordered listing fails loudly at boot rather than
+             quietly attaching the wrong note to the wrong line.
+   ═══════════════════════════════════════════════════════════════ */
+const BANK = [
+
+  /* ══ Implement and manage an analytics solution ══════════════ */
+
+  {
+    id: "git-branch",
+    domain: "implement",
+    objective: "Lifecycle management → Configure version control",
+    title: "Two workspaces, one feature branch",
+    scenario: "The silver-layer refactor is being worked on by two squads. Both want their own workspace pointed at the shared feature branch so they can sync notebooks back and forth.",
+    listing: "Workspace Git settings — SalesEng-Dev",
+    lines: [
+      "workspace:     SalesEng-Dev",
+      "provider:      Azure DevOps (Fabric-Analytics project)",
+      "branch:        feature/silver-refactor   #cm(already connected to SalesEng-Test)",
+      "folder:        /fabric/sales"
+    ],
+    fault: 3,
+    hint: "Think about how many things can hold a Git connection to one branch at a time.",
+    why: "A Git branch can be connected to exactly one Fabric workspace at a time, and a workspace to one branch. Wiring a second workspace to <em>feature/silver-refactor</em> is rejected — the two squads need a branch each, then merge in the Git provider.",
+    holds: [
+      { line: 1, text: "A workspace connects to a single branch, which is the shape configured here." },
+      { line: 2, text: "Azure DevOps and GitHub are both supported providers for workspace Git integration." },
+      { line: 4, text: "Scoping the connection to a subfolder is supported and keeps unrelated repo content out of the workspace." }
+    ],
+    ref: "Git integration is workspace-scoped: one workspace ↔ one branch ↔ one folder."
+  },
+
+  {
+    id: "deploy-rule-stage",
+    domain: "implement",
+    objective: "Lifecycle management → Create and configure deployment pipelines",
+    title: "The deployment rule that never fires",
+    scenario: "A three-stage pipeline promotes a lakehouse and its notebooks. A rule was added so the notebooks bind to the production lakehouse once they land in Prod — but after deployment they still point at the dev lakehouse.",
+    listing: "Deployment pipeline — SalesEng Release",
+    lines: [
+      "stages:            Dev → Test → Prod",
+      "deployment_rule:   configured on stage = Dev   #cm(source stage)",
+      "  item:            NB_Load_Silver (Notebook)",
+      "  rule:            default_lakehouse → LH_Sales_Prod"
+    ],
+    fault: 2,
+    hint: "A rule is evaluated as content arrives somewhere. Which stage is content arriving in?",
+    why: "Deployment rules belong to the <em>target</em> stage — the stage content is deployed into. A rule sitting on Dev has nothing deploying into it, so it never evaluates. Move the rule to Prod, and set one on Test too if Test needs its own binding.",
+    holds: [
+      { line: 1, text: "Three stages is the standard Dev/Test/Prod shape for a Fabric deployment pipeline." },
+      { line: 3, text: "Notebooks support deployment rules, including rebinding the default lakehouse." },
+      { line: 4, text: "Rebinding to a stage-appropriate lakehouse is exactly what the rule should do — only its placement is wrong." }
+    ],
+    ref: "Rules are authored on the stage that receives the deployment, not the one it leaves."
+  },
+
+  {
+    id: "rls-onelake-bypass",
+    domain: "implement",
+    objective: "Security and governance → Row-level and OneLake access controls",
+    title: "Row-level security that leaks",
+    scenario: "Regional analysts should only see their own region's rows in the warehouse. The security policy tests clean in SSMS, yet an analyst has produced a notebook listing every region.",
+    listing: "Access configuration — WH_Sales",
+    lines: [
+      "security_policy:   fn_region_filter ON dbo.FactSales   #cm(state = ON)",
+      "analyst_access:    SELECT via SQL analytics endpoint",
+      "analyst_access:    ReadAll on LH_Sales (OneLake / Spark)",
+      "sensitivity_label: Confidential — Finance"
+    ],
+    fault: 3,
+    hint: "The policy is a SQL engine feature. What did the analyst query with?",
+    why: "T-SQL row-level security is enforced by the SQL engine only. <em>ReadAll</em> hands the analyst direct OneLake access, so Spark and shortcuts read the Delta files underneath and the predicate never runs. Revoke the OneLake data-access role and let them in through the endpoint, or express the restriction with OneLake security roles.",
+    holds: [
+      { line: 1, text: "An enabled security policy with a filter predicate is the correct RLS construction." },
+      { line: 2, text: "Granting SELECT on the endpoint is the access path where RLS does apply." },
+      { line: 4, text: "Sensitivity labels travel with the item and are complementary — they classify, they don't filter rows." }
+    ],
+    ref: "Every extra data path is a path around SQL-layer security. Enumerate them all."
+  },
+
+  {
+    id: "unmask-grant",
+    domain: "implement",
+    objective: "Security and governance → Implement dynamic data masking",
+    title: "Masked, then unmasked",
+    scenario: "Support staff need to work cases against the customer table without seeing full email addresses. Masking is in place, but the reviewer flags that one line undoes the whole control.",
+    listing: "T-SQL — WH_Support",
+    lines: [
+      "ALTER TABLE dbo.Customer ALTER COLUMN Email",
+      "  ADD MASKED WITH (FUNCTION = 'email()');",
+      "GRANT SELECT ON dbo.Customer TO [support-agents];",
+      "GRANT UNMASK TO [support-agents];"
+    ],
+    fault: 4,
+    hint: "One of these grants is the off switch for the other three lines.",
+    why: "<em>GRANT UNMASK</em> returns full values to that principal, so support agents see every address in the clear. Drop the grant. Masking is a presentation control anyway — it does not stop someone inferring values with a <em>WHERE</em> predicate, and workspace Admins and Members always read unmasked.",
+    holds: [
+      { line: 1, text: "Masking is applied per column with ALTER COLUMN ADD MASKED WITH — correct syntax." },
+      { line: 2, text: "email() is a valid built-in masking function and the right one for an address column." },
+      { line: 3, text: "SELECT is required for the agents to query the table at all; masking applies on top of it." }
+    ],
+    ref: "Masking obscures output. It is not a substitute for column-level security."
+  },
+
+  {
+    id: "engine-choice-spark",
+    domain: "implement",
+    objective: "Orchestrate processes → Dataflow Gen2 vs pipeline vs notebook",
+    title: "Wrong engine for the job",
+    scenario: "Nightly job: read roughly 400 GB of raw JSON from OneLake, apply an in-house Python scoring function to each record, and write Delta to silver. On-call wants a failure alert.",
+    listing: "Design proposal — nightly-score",
+    lines: [
+      "transform:     Dataflow Gen2 with a custom PySpark UDF",
+      "orchestrator:  Data pipeline, schedule 02:00 daily",
+      "on_failure:    Activator alert to the on-call Teams channel",
+      "compute:       Spark environment, memory-optimised nodes"
+    ],
+    fault: 1,
+    hint: "Which of these four can actually execute Python?",
+    why: "Dataflow Gen2 transforms with Power Query / M — it cannot host a PySpark UDF, and it is the wrong tool at hundreds of gigabytes with custom code. Use a notebook for the transform and keep the pipeline as the orchestrator. Reach for Dataflow Gen2 when the work is low-code connector-and-column shaping at modest volume.",
+    holds: [
+      { line: 2, text: "A pipeline on a schedule is the right orchestrator for a nightly job." },
+      { line: 3, text: "Routing failures to Activator is a sound alerting pattern." },
+      { line: 4, text: "A memory-optimised Spark environment is a reasonable fit for large JSON parsing." }
+    ],
+    ref: "Notebook for code and scale, Dataflow Gen2 for low-code shaping, pipeline to orchestrate both."
+  },
+
+  {
+    id: "viewer-role-notebook",
+    domain: "implement",
+    objective: "Security and governance → Workspace-level access controls",
+    title: "The role that can look but not run",
+    scenario: "A new data engineer joins the platform team. They can open every notebook in the dev workspace and read the lakehouse, but every attempt to execute a cell fails on permissions.",
+    listing: "Workspace access — SalesEng-Dev",
+    lines: [
+      "principal:   grp-fabric-eng (Entra security group)",
+      "role:        Viewer",
+      "requirement: author and run notebooks, write to LH_Sales",
+      "capacity:    F16, workspace assigned"
+    ],
+    fault: 2,
+    hint: "Rank the four workspace roles by what they let you write.",
+    why: "Viewer is a read-only role — it cannot run notebooks or write items. The engineer needs <em>Contributor</em>, the lowest role that can create and execute items. Reserve Member for people who also need to share items onward, and Admin for workspace configuration.",
+    holds: [
+      { line: 1, text: "Assigning workspace roles to an Entra group rather than to individuals is the recommended practice." },
+      { line: 3, text: "This is a normal requirement for a data engineer — the role on line 2 simply does not satisfy it." },
+      { line: 4, text: "The workspace must sit on a Fabric capacity for Fabric items to run at all, and it does." }
+    ],
+    ref: "Viewer reads, Contributor builds, Member shares, Admin governs."
+  },
+
+  {
+    id: "endorse-certify",
+    domain: "implement",
+    objective: "Security and governance → Endorse items",
+    title: "Certifying your own gold model",
+    scenario: "The team wants their gold semantic model marked as the trusted version for the business. A workspace member sets out to certify it and cannot find the option.",
+    listing: "Endorsement plan — SM_Sales_Gold",
+    lines: [
+      "item:          SM_Sales_Gold (semantic model)",
+      "actor:         workspace Member",
+      "endorsement:   Certified",
+      "documentation: owner, refresh SLA and lineage recorded"
+    ],
+    fault: 3,
+    hint: "Two endorsement levels exist. Only one of them is self-service.",
+    why: "Anyone with write permission on an item can mark it <em>Promoted</em>, but <em>Certified</em> can only be applied by reviewers a Fabric admin has authorised in tenant settings. Promote it now and request certification through that process.",
+    holds: [
+      { line: 1, text: "Semantic models are endorsable, as are most Fabric item types." },
+      { line: 2, text: "A workspace Member has write permission, which is enough to promote — just not to certify." },
+      { line: 4, text: "Recording ownership and an SLA is exactly the evidence a certification reviewer will ask for." }
+    ],
+    ref: "Promoted is self-service. Certified is delegated by the tenant admin."
+  },
+
+  {
+    id: "audit-log-location",
+    domain: "implement",
+    objective: "Security and governance → Implement and use Fabric audit logs",
+    title: "Looking for audit events in the wrong place",
+    scenario: "Compliance asks who exported data from the finance warehouse over the last 60 days. The engineer opens the workspace Monitoring hub and finds only pipeline and notebook runs.",
+    listing: "Investigation plan — finance export review",
+    lines: [
+      "question:  which principals exported or downloaded data, last 60 days",
+      "source:    workspace Monitoring hub",
+      "filter:    activity = ExportArtifact, workspace = WS_Finance",
+      "retention: relying on the tenant audit retention policy"
+    ],
+    fault: 2,
+    hint: "The Monitoring hub answers 'did my job run?'. This is a different question.",
+    why: "The Monitoring hub shows item run history, not user activity. Fabric audit events land in the unified audit log, which you search from the Microsoft Purview compliance portal — the Fabric admin portal links straight to it. That is where <em>ExportArtifact</em> and similar user activities are queryable.",
+    holds: [
+      { line: 1, text: "A principal-and-timeframe question is a legitimate audit-log query." },
+      { line: 3, text: "ExportArtifact is a real Fabric audit activity name and workspace is a valid filter — in the right tool." },
+      { line: 4, text: "Audit retention is governed by tenant policy and licensing, which is the correct thing to check." }
+    ],
+    ref: "Monitoring hub = item runs. Unified audit log = who did what."
+  },
+
+  {
+    id: "event-trigger",
+    domain: "implement",
+    objective: "Orchestrate processes → Schedules and event-based triggers",
+    title: "Polling for something that announces itself",
+    scenario: "A partner drops files into OneLake at unpredictable times. The SLA is to have them in bronze within a minute of arrival. The current design misses the SLA about half the time and burns capacity all night doing nothing.",
+    listing: "Trigger design — partner-drop-ingest",
+    lines: [
+      "arrival:   unpredictable, 0–40 files per night",
+      "trigger:   schedule, every 5 minutes, 18:00–06:00",
+      "pipeline:  copy Files/landing → bronze, then notebook",
+      "sla:       in bronze within 60 seconds of file arrival"
+    ],
+    fault: 2,
+    hint: "The SLA is 60 seconds. What is the worst-case wait on line 2?",
+    why: "A five-minute schedule has a five-minute worst case, so it cannot meet a 60-second SLA, and it runs 96 times a night whether files arrived or not. Use an event-based trigger on OneLake events so file creation starts the pipeline directly.",
+    holds: [
+      { line: 1, text: "Unpredictable arrival is precisely the signal that you want events rather than a schedule." },
+      { line: 3, text: "Copy-then-notebook is a reasonable pipeline shape for this ingest." },
+      { line: 4, text: "The SLA is the requirement, not the error — line 2 is what fails to meet it." }
+    ],
+    ref: "Known cadence, use a schedule. Unpredictable arrival, use an event."
+  },
+
+  {
+    id: "notebook-param-cell",
+    domain: "implement",
+    objective: "Orchestrate processes → Parameters and dynamic expressions",
+    title: "The parameter the notebook ignores",
+    scenario: "A pipeline runs the same notebook once per region, passing the region in. Every run processes 'east' — the value hard-coded in the notebook — no matter what the pipeline sends.",
+    listing: "Notebook — load_region.ipynb",
+    lines: [
+      "# cell 1  (not marked as the parameter cell)",
+      "region = 'east'",
+      "# cell 2",
+      "df = spark.read.load(f'Files/landing/{region}')",
+      "# pipeline: Notebook activity → base parameters → region = @item()"
+    ],
+    fault: 1,
+    hint: "The pipeline is sending the value. Where does the notebook let it land?",
+    why: "Base parameters from a pipeline are injected by overwriting the notebook's <em>parameter cell</em> — and a notebook has one only if you explicitly toggle a cell as such. Untagged, cell 1 is ordinary code that resets <em>region</em> on every run. Mark it as the parameter cell and the pipeline value takes effect, with 'east' remaining as the local default.",
+    holds: [
+      { line: 2, text: "A default value in the parameter cell is good practice — it keeps the notebook runnable interactively." },
+      { line: 3, text: "Ordinary comment; nothing to fix." },
+      { line: 4, text: "Reading a parameterised path is the intended behaviour once the value actually arrives." },
+      { line: 5, text: "Base parameters driven by a ForEach @item() expression is the correct pipeline-side pattern." }
+    ],
+    ref: "Injection needs a target. No parameter cell, no parameters."
+  },
+
+  /* ══ Ingest and transform data ═══════════════════════════════ */
+
+  {
+    id: "watermark-boundary",
+    domain: "ingest",
+    objective: "Loading patterns → Full and incremental data loads",
+    title: "The incremental load that duplicates a day",
+    scenario: "A pipeline pulls modified orders from an operational source into bronze each hour. Row counts drift upward and analysts report duplicate order IDs at hour boundaries.",
+    listing: "Copy activity source query",
+    lines: [
+      "DECLARE @last DATETIME2 = '@{activity('lookup_wm').output.firstRow.wm}';",
+      "SELECT * FROM src.Orders WHERE ModifiedDate >= @last",
+      "  AND ModifiedDate < '@{pipeline().TriggerTime}'",
+      "-- sink: append into bronze.orders_raw"
+    ],
+    fault: 2,
+    hint: "Consider a row whose ModifiedDate is exactly the stored watermark.",
+    why: "The stored watermark is the <em>highest value already loaded</em>, so <em>&gt;=</em> re-reads every row sitting exactly on that boundary — once per run, forever. Use <em>&gt;</em> for the lower bound and keep <em>&lt;</em> on the upper bound, giving a half-open window with no overlap and no gap.",
+    holds: [
+      { line: 1, text: "Reading the previous watermark from a lookup activity is the standard pattern." },
+      { line: 3, text: "An exclusive upper bound pinned to trigger time prevents partially-written rows being claimed." },
+      { line: 4, text: "Appending raw rows to bronze is the expected medallion behaviour; dedup belongs downstream." }
+    ],
+    ref: "Half-open windows: lower bound exclusive, upper bound exclusive, no row counted twice."
+  },
+
+  {
+    id: "shortcut-tables-parquet",
+    domain: "ingest",
+    objective: "Batch data → Create and manage OneLake shortcuts",
+    title: "A shortcut that refuses to appear as a table",
+    scenario: "A curated product extract already lives in ADLS Gen2. The engineer creates a shortcut so the lakehouse can query it, but it never shows up in the SQL analytics endpoint.",
+    listing: "Shortcut definition — LH_Sales",
+    lines: [
+      "location:      Tables/dim_product",
+      "target:        abfss://curated@adlssales.dfs.core.windows.net/dim_product/",
+      "target_files:  part-0000.parquet, part-0001.parquet   #cm(no _delta_log)",
+      "auth:          workspace identity"
+    ],
+    fault: 3,
+    hint: "What does the Tables area of a lakehouse insist every folder is?",
+    why: "Anything surfaced under <em>Tables</em> must be a Delta table — a folder with a <em>_delta_log</em>. Bare Parquet has no transaction log, so the shortcut is created but never registers as a table. Either point the shortcut at <em>Files/</em> and convert with a notebook, or have the producer write Delta.",
+    holds: [
+      { line: 1, text: "The Tables area is the correct place for a shortcut you want to query as a table — if the target qualifies." },
+      { line: 2, text: "ADLS Gen2 via abfss is a supported shortcut target alongside OneLake, S3, GCS and Dataverse." },
+      { line: 4, text: "Workspace identity is a valid and preferable authentication choice over an embedded key." }
+    ],
+    ref: "Tables area = Delta only. Everything else goes under Files."
+  },
+
+  {
+    id: "mirror-readonly",
+    domain: "ingest",
+    objective: "Batch data → Implement mirroring",
+    title: "Writing into a mirror",
+    scenario: "An Azure SQL Database is mirrored into Fabric for near-real-time reporting. A cleanup step is added to standardise country codes before the gold layer reads it. The step fails every run.",
+    listing: "Design — MirroredSales",
+    lines: [
+      "source:        Azure SQL Database (mirroring enabled)",
+      "replication:   continuous, near real-time into OneLake as Delta",
+      "cleanup:       notebook runs MERGE against MirroredSales.dbo.Customer",
+      "downstream:    shortcut from LH_Gold to the mirrored tables"
+    ],
+    fault: 3,
+    hint: "Which direction is a mirror allowed to move data?",
+    why: "Mirrored database tables are read-only in Fabric — the replica is owned by the replication process, so a <em>MERGE</em> against it cannot succeed. Do the standardisation downstream: shortcut or read the mirrored table into a lakehouse and write the cleaned result to your own Delta table.",
+    holds: [
+      { line: 1, text: "Azure SQL Database is a supported mirroring source, alongside Cosmos DB, Snowflake and others." },
+      { line: 2, text: "Continuous replication landing Delta in OneLake is exactly how mirroring works." },
+      { line: 4, text: "Shortcutting the mirrored tables into another lakehouse is the supported, zero-copy consumption path." }
+    ],
+    ref: "Read from the mirror, never write to it. Transform in a layer you own."
+  },
+
+  {
+    id: "shared-checkpoint",
+    domain: "ingest",
+    objective: "Streaming data → Spark structured streaming",
+    title: "Four streams, one checkpoint",
+    scenario: "Four structured streaming queries move bronze Delta tables into silver. After a cluster restart, one stream replays old data and another silently skips a batch.",
+    listing: "PySpark — stream_silver.py",
+    lines: [
+      "df = spark.readStream.format('delta').load('Tables/bronze_orders')",
+      "q  = df.writeStream.outputMode('append')",
+      "     .option('checkpointLocation', 'Files/_ckpt/shared')   #cm(same value in all four jobs)",
+      "     .trigger(availableNow=True).toTable('silver_orders')"
+    ],
+    fault: 3,
+    hint: "The checkpoint stores offsets. Whose offsets?",
+    why: "A checkpoint location holds the offset log and commit log for <em>one</em> query. Four streams writing into the same directory overwrite each other's progress, which is exactly the replay-and-skip pattern reported. Give every query its own path, e.g. <em>Files/_ckpt/silver_orders</em>, and never reuse one after changing a query's shape.",
+    holds: [
+      { line: 1, text: "Reading a Delta table as a stream is supported and standard for medallion promotion." },
+      { line: 2, text: "Append output mode is correct for a non-aggregating passthrough." },
+      { line: 4, text: "Trigger availableNow processes all available data then stops — a good fit for scheduled batch-style streaming." }
+    ],
+    ref: "One query, one checkpoint. Treat the path as part of the query's identity."
+  },
+
+  {
+    id: "hopping-window",
+    domain: "ingest",
+    objective: "Streaming data → Create windowing functions",
+    title: "A window with holes in it",
+    scenario: "Requirement: publish a rolling five-minute average temperature per device, refreshed once a minute. The configured window produces a value only every ten minutes, and half the readings never appear in any result.",
+    listing: "Eventstream aggregation",
+    lines: [
+      "window:      Hopping",
+      "size:        5 minutes",
+      "hop:         10 minutes",
+      "timestamp:   event_time   #cm(from the device payload)"
+    ],
+    fault: 3,
+    hint: "Compare the hop against the window size and picture the timeline.",
+    why: "Hop is how often a new window opens. With a 5-minute window hopping every 10 minutes, consecutive windows leave a 5-minute hole and output arrives only every 10 minutes. Set hop to 1 minute for the requested overlap. Hop equal to size would be a tumbling window; hop greater than size always drops data.",
+    holds: [
+      { line: 1, text: "Hopping is the right window type when you need overlapping periods — tumbling cannot overlap." },
+      { line: 2, text: "Five minutes matches the requested averaging period." },
+      { line: 4, text: "Using the payload's event time rather than arrival time is what makes late data land in the correct window." }
+    ],
+    ref: "hop < size overlaps, hop = size tumbles, hop > size loses events."
+  },
+
+  {
+    id: "eventhouse-vs-lakehouse",
+    domain: "ingest",
+    objective: "Streaming data → Choose an appropriate streaming engine",
+    title: "Sub-second dashboards on a batch sink",
+    scenario: "Roughly 200,000 telemetry events per second arrive from Event Hubs. Operators need sub-second slice-and-dice over the last few hours, plus 90 days of history for trend analysis.",
+    listing: "Design — rti-telemetry",
+    lines: [
+      "ingest:      Eventstream source = Azure Event Hubs",
+      "destination: Lakehouse Delta table, default settings",
+      "serving:     KQL queryset + real-time dashboard",
+      "alerting:    Activator rule on threshold breach"
+    ],
+    fault: 2,
+    hint: "One line names a store the serving layer on line 3 cannot even query.",
+    why: "A lakehouse destination writes in micro-batches — minutes of latency and a flood of small files at this rate — and a KQL queryset cannot query it. Land the stream in an <em>Eventhouse</em> (KQL database), where the streaming ingestion path and indexing are built for this velocity, and set the retention policy to 90 days.",
+    holds: [
+      { line: 1, text: "Event Hubs is a first-class Eventstream source for high-volume telemetry." },
+      { line: 3, text: "KQL querysets and real-time dashboards are the right serving layer for interactive telemetry analysis." },
+      { line: 4, text: "Activator is the correct way to turn a threshold breach into an alert or action." }
+    ],
+    ref: "High velocity plus interactive latency plus time-series shape points to Eventhouse."
+  },
+
+  {
+    id: "scd2-key",
+    domain: "ingest",
+    objective: "Loading patterns → Prepare data for a dimensional model",
+    title: "A Type 2 dimension that keeps one row",
+    scenario: "DimCustomer should retain history when a customer changes region. The load runs clean, but every customer still has exactly one row and the region simply overwrites.",
+    listing: "Notebook — load_dim_customer",
+    lines: [
+      "customer_sk = sha2(col('customer_id'), 256)",
+      "add valid_from = load_ts, valid_to = lit('9999-12-31')",
+      "add is_current = lit(True)",
+      "merge into DimCustomer on target.customer_sk = source.customer_sk"
+    ],
+    fault: 1,
+    hint: "How many distinct keys can a customer with three historical versions produce here?",
+    why: "Hashing the business key alone yields one surrogate key per customer, so the merge on line 4 matches the existing row and updates it in place — a Type 1 overwrite. The surrogate key must be unique per <em>version</em>: hash the business key together with <em>valid_from</em>, or use a generated sequence.",
+    holds: [
+      { line: 2, text: "valid_from / valid_to with an open-ended high date is the conventional Type 2 validity pair." },
+      { line: 3, text: "An is_current flag is a standard convenience for consumers querying the live version." },
+      { line: 4, text: "MERGE on the surrogate key is the right operation — it only misbehaves because line 1 makes the key non-unique." }
+    ],
+    ref: "In a Type 2 dimension the surrogate key identifies a version, not an entity."
+  },
+
+  {
+    id: "store-choice-warehouse",
+    domain: "ingest",
+    objective: "Batch data → Choose an appropriate data store",
+    title: "A store that cannot take the writes",
+    scenario: "A finance close process needs stored procedures that update several tables together and roll back as one unit if any step fails. Analysts also query the result interactively with T-SQL.",
+    listing: "Design — finance-close",
+    lines: [
+      "requirement: multi-table transactions, rollback on failure",
+      "requirement: stored procedures, interactive T-SQL for analysts",
+      "store:       Lakehouse, queried through its SQL analytics endpoint",
+      "modelling:   star schema, Direct Lake semantic model on top"
+    ],
+    fault: 3,
+    hint: "What can that particular T-SQL surface do besides SELECT?",
+    why: "A lakehouse's SQL analytics endpoint is <em>read-only</em>: no INSERT, UPDATE, DELETE, no stored procedures, no multi-table transactions. Requirements like these call for a <em>Warehouse</em>, which offers full T-SQL DML and transactional semantics while still storing Delta in OneLake.",
+    holds: [
+      { line: 1, text: "Transactional multi-table writes are a legitimate requirement — they just select the store for you." },
+      { line: 2, text: "Stored procedures and interactive T-SQL point squarely at the warehouse." },
+      { line: 4, text: "A star schema with a Direct Lake model works over a warehouse just as well as over a lakehouse." }
+    ],
+    ref: "Warehouse when you need to write T-SQL. Lakehouse when Spark writes and T-SQL reads."
+  },
+
+  {
+    id: "watermark-lateness",
+    domain: "ingest",
+    objective: "Streaming data → Handle late-arriving data",
+    title: "Late data silently discarded",
+    scenario: "Field devices buffer readings when they lose signal and resend up to two hours later. The nightly reconciliation shows around 3% of readings missing from the aggregate table, with no errors anywhere.",
+    listing: "PySpark — aggregate_readings.py",
+    lines: [
+      "known: devices may resend readings up to 2 hours late",
+      "df = df.withWatermark('event_time', '10 minutes')",
+      "df = df.groupBy(window('event_time', '15 minutes'), 'device_id').avg('temp_c')",
+      "q  = df.writeStream.outputMode('append').option('checkpointLocation', ckpt_unique)"
+    ],
+    fault: 2,
+    hint: "The watermark is a promise about lateness. Does it match line 1?",
+    why: "A watermark tells Spark how late an event may be before its window is closed and its state dropped — anything later is discarded without error. Ten minutes against a known two-hour lag throws away the buffered readings. Set the watermark above your real worst case, accepting that a longer watermark means more retained state and later output.",
+    holds: [
+      { line: 1, text: "This is the requirement the watermark has to accommodate, and the clue to the fault." },
+      { line: 3, text: "A tumbling 15-minute window keyed by device is a sensible aggregation for this data." },
+      { line: 4, text: "Append mode with a watermark is valid for windowed aggregation, and the checkpoint is unique per query." }
+    ],
+    ref: "The watermark is your lateness budget. Size it from the worst case you actually observe."
+  },
+
+  {
+    id: "kql-filter-after-summarize",
+    domain: "ingest",
+    objective: "Batch data → Transform data by using PySpark, SQL and KQL",
+    title: "A KQL filter on a column that no longer exists",
+    scenario: "A KQL query counting errors per device over the last day fails with an unknown-column error naming the timestamp column, which definitely exists in the table.",
+    listing: "KQL — Eventhouse / DeviceLogs",
+    lines: [
+      "DeviceLogs",
+      "| where severity == 'error'",
+      "| summarize errors = count() by device_id",
+      "| where timestamp > ago(1d)",
+      "| top 20 by errors desc"
+    ],
+    fault: 4,
+    hint: "Ask what columns exist immediately after line 3 runs.",
+    why: "<em>summarize</em> emits only its by-columns and aggregates, so after line 3 the schema is <em>device_id, errors</em> — <em>timestamp</em> is gone. Move the time filter above the summarize. Filtering on time first is also what lets the engine prune extents, so this is a performance fix as much as a correctness one.",
+    holds: [
+      { line: 1, text: "Naming the table as the first operator is correct KQL." },
+      { line: 2, text: "Filtering severity before aggregating is both correct and efficient." },
+      { line: 3, text: "count() grouped by device_id is the right aggregate for the question." },
+      { line: 5, text: "top … by … desc is valid and runs against columns that still exist at that point." }
+    ],
+    ref: "In KQL, filter early — especially on time. summarize resets the schema."
+  },
+
+  {
+    id: "dedupe-unbounded-state",
+    domain: "ingest",
+    objective: "Batch data → Handle duplicate, missing and late-arriving data",
+    title: "Deduplication that grows forever",
+    scenario: "A streaming job dedupes orders by ID. It runs happily for a fortnight, then executors start failing with out-of-memory errors, and the failures come sooner after each restart.",
+    listing: "PySpark — dedupe_orders.py",
+    lines: [
+      "stream = spark.readStream.format('delta').load('Tables/bronze_orders')",
+      "stream = stream.dropDuplicates(['order_id'])",
+      "stream = stream.writeStream.outputMode('append')",
+      "     .option('checkpointLocation', 'Files/_ckpt/dedupe_orders')",
+      "     .toTable('silver_orders')"
+    ],
+    fault: 2,
+    hint: "To know an ID is a duplicate, what must the query remember, and for how long?",
+    why: "On a stream, <em>dropDuplicates</em> keeps every key it has ever seen in state so it can recognise a repeat — unbounded growth, and the symptom is exactly this slow slide into OOM. Add a watermark and bound the window: <em>withWatermark('event_time','24 hours')</em> then <em>dropDuplicatesWithinWatermark(['order_id'])</em>, so state ages out.",
+    holds: [
+      { line: 1, text: "Streaming a Delta bronze table is the normal medallion promotion pattern." },
+      { line: 3, text: "Append is the right output mode for a dedupe passthrough." },
+      { line: 4, text: "A dedicated checkpoint path per query is correct." },
+      { line: 5, text: "Writing to a managed silver table is the intended sink." }
+    ],
+    ref: "Any stateful streaming operator without a watermark is a memory leak with a delay."
+  },
+
+  {
+    id: "fabric-warehouse-identity",
+    domain: "ingest",
+    objective: "Loading patterns → Prepare data for a dimensional model",
+    title: "A CREATE TABLE the warehouse rejects",
+    scenario: "A dimension table is being ported from Azure SQL Database into a Fabric warehouse. The script fails on the first statement.",
+    listing: "T-SQL — WH_Sales",
+    lines: [
+      "CREATE TABLE dbo.DimStore (",
+      "  store_sk   INT IDENTITY(1,1) NOT NULL,",
+      "  store_name VARCHAR(100) NOT NULL,",
+      "  CONSTRAINT PK_DimStore PRIMARY KEY NONCLUSTERED (store_sk) NOT ENFORCED );"
+    ],
+    fault: 2,
+    hint: "One column property is a habit carried over from SQL Server that the warehouse has no equivalent for.",
+    why: "Fabric Warehouse does not support <em>IDENTITY</em> columns. Generate surrogate keys yourself — a hash of the business key, or <em>ROW_NUMBER()</em> over the load offset by the current maximum.",
+    holds: [
+      { line: 1, text: "CREATE TABLE in a Fabric warehouse is supported; only the column property on line 2 is not." },
+      { line: 3, text: "VARCHAR with an explicit length is the recommended choice over unbounded or Unicode-by-default types." },
+      { line: 4, text: "PRIMARY KEY is allowed only as NONCLUSTERED and NOT ENFORCED — declared exactly right here." }
+    ],
+    ref: "Constraints in Fabric Warehouse are optimiser metadata. Uniqueness is your job."
+  },
+
+  /* ══ Monitor and optimize an analytics solution ══════════════ */
+
+  {
+    id: "vacuum-retain-zero",
+    domain: "monitor",
+    objective: "Optimize performance → Optimize a Lakehouse table",
+    title: "Maintenance that breaks time travel",
+    scenario: "Silver tables had accumulated small files, so a nightly maintenance notebook was added. Since then a downstream streaming reader fails intermittently with file-not-found, and auditors can no longer query yesterday's version.",
+    listing: "Notebook — nightly_maintenance",
+    lines: [
+      "OPTIMIZE silver.orders;",
+      "VACUUM silver.orders RETAIN 0 HOURS;",
+      "-- table property: logRetentionDuration = 30 days",
+      "-- schedule: 01:30 daily, after the load completes"
+    ],
+    fault: 2,
+    hint: "Which files does that command consider expendable, and who might still be holding them?",
+    why: "Vacuuming to zero deletes every file no longer in the current version — including files a long-running reader or streaming query still has open, and every file older versions depend on. Keep the default seven-day retention, or longer than your slowest reader plus your time-travel requirement.",
+    holds: [
+      { line: 1, text: "OPTIMIZE is the right fix for small-file accumulation; it compacts into larger, better-read files." },
+      { line: 3, text: "Retaining the transaction log for 30 days is a reasonable audit setting — the log is not what got deleted." },
+      { line: 4, text: "Running maintenance after the load, off the ingest window, is good scheduling." }
+    ],
+    ref: "OPTIMIZE compacts. VACUUM deletes. Only one of them is irreversible."
+  },
+
+  {
+    id: "partition-cardinality",
+    domain: "monitor",
+    objective: "Optimize performance → Optimize a Lakehouse table",
+    title: "Two billion partitions",
+    scenario: "A 2.1 TB telemetry fact table is being rebuilt. Writes now take hours, the file count is in the millions, and even a single-day query scans forever.",
+    listing: "Notebook — write_fact_telemetry",
+    lines: [
+      "target:        silver.fact_telemetry (2.1 TB, append-only)",
+      "partitionBy:   event_timestamp   #cm(second precision)",
+      "v_order:       enabled",
+      "maintenance:   OPTIMIZE weekly"
+    ],
+    fault: 2,
+    hint: "Count the distinct values of that column across 2.1 TB.",
+    why: "Partitioning on a second-precision timestamp creates a directory per distinct instant — millions of near-empty partitions, catastrophic metadata overhead, and no useful pruning. Partition on a low-cardinality derived column such as <em>event_date</em>, or leave it unpartitioned and rely on V-Order plus statistics.",
+    holds: [
+      { line: 1, text: "An append-only fact table of this size is a normal silver-layer shape." },
+      { line: 3, text: "V-Order improves read performance for Direct Lake and warehouse queries and is a sensible default here." },
+      { line: 4, text: "Weekly OPTIMIZE is reasonable maintenance — it just cannot rescue a bad partition layout." }
+    ],
+    ref: "Aim for partitions around a gigabyte, and only partition on columns you filter on."
+  },
+
+  {
+    id: "on-completion-dependency",
+    domain: "monitor",
+    objective: "Identify and resolve errors → Pipeline errors",
+    title: "A pipeline that succeeds while failing",
+    scenario: "Copy lands the daily extract, then a notebook builds silver. Last Tuesday the source was unavailable, yet the pipeline reported success and the silver table came out with a third of the expected rows.",
+    listing: "Pipeline — daily_ingest",
+    lines: [
+      "activity 1:  Copy data (source → bronze)",
+      "activity 2:  Notebook (bronze → silver), depends on Copy: On completion",
+      "retry:       3 attempts, 30 second interval (Copy)",
+      "alert:       Activator on pipeline failure"
+    ],
+    fault: 2,
+    hint: "What does that dependency condition consider an acceptable outcome for the copy?",
+    why: "<em>On completion</em> fires whether the upstream activity succeeded or failed, so the notebook ran against a partial bronze table — and because the notebook itself succeeded, the pipeline reported success and the alert never fired. Use <em>On success</em>, and hang a separate failure path off the copy if you need cleanup.",
+    holds: [
+      { line: 1, text: "Copy-then-transform is the expected shape for this job." },
+      { line: 3, text: "Retries on the copy are appropriate for a transient source outage and are not the problem." },
+      { line: 4, text: "An Activator alert on pipeline failure is correct — it stayed silent only because line 2 masked the failure." }
+    ],
+    ref: "Dependency conditions are control flow. On completion means 'proceed regardless'."
+  },
+
+  {
+    id: "high-concurrency-sessions",
+    domain: "monitor",
+    objective: "Optimize performance → Optimize Spark performance",
+    title: "Thirty notebooks, thirty sessions",
+    scenario: "A nightly pipeline fans out to 30 short notebooks between 02:00 and 03:00. Most of the hour is spent watching jobs queue, and each notebook reports several minutes of startup before it does any work.",
+    listing: "Spark workspace settings",
+    lines: [
+      "environment:         Env_Prod (Spark 3.5, 40 libraries)",
+      "high_concurrency:    off   #cm(session sharing disabled)",
+      "starter_pool:        on",
+      "dynamic_allocation:  min 1, max 8 executors"
+    ],
+    fault: 2,
+    hint: "Thirty short jobs each paying full session cost — what setting removes that cost?",
+    why: "With high concurrency off, every notebook acquires its own Spark session and its own share of capacity cores, so the run serialises behind the core limit and pays session start-up 30 times. Turn high concurrency on so notebooks in the same run share a session; the win is largest on many short jobs.",
+    holds: [
+      { line: 1, text: "A custom environment is the right place to pin runtime and libraries — though 40 of them do slow session start." },
+      { line: 3, text: "The starter pool exists precisely to cut start-up latency and should stay on." },
+      { line: 4, text: "Dynamic allocation with a modest ceiling is sensible for short jobs and is not what is queueing them." }
+    ],
+    ref: "Many small jobs: share sessions. One big job: give it its own."
+  },
+
+  {
+    id: "shuffle-partitions",
+    domain: "monitor",
+    objective: "Optimize performance → Optimize Spark performance",
+    title: "Two thousand partitions for two gigabytes",
+    scenario: "A join over about 2 GB of Delta was 'tuned' last sprint. It now spends most of its runtime in scheduling overhead and writes several thousand tiny files.",
+    listing: "Notebook — build_silver_orders",
+    lines: [
+      "spark.conf.set('spark.sql.shuffle.partitions', 2000)",
+      "spark.conf.set('spark.sql.adaptive.enabled', True)",
+      "orders.join(customers, 'customer_id', 'left')",
+      "  .write.mode('overwrite').saveAsTable('silver.orders')"
+    ],
+    fault: 1,
+    hint: "Divide the data volume by the partition count and ask if that is a task worth scheduling.",
+    why: "2000 shuffle partitions over 2 GB is roughly a megabyte per task — scheduling cost dwarfs the work, and each partition becomes its own output file. Target partitions in the low hundreds of megabytes. Better still, leave the setting alone and let adaptive query execution coalesce partitions from runtime statistics.",
+    holds: [
+      { line: 2, text: "Adaptive query execution is on, which is correct — it would coalesce partitions if line 1 were not pinned." },
+      { line: 3, text: "A left join on customer_id is ordinary enrichment and not the bottleneck." },
+      { line: 4, text: "Overwriting the silver table is a valid full-load strategy." }
+    ],
+    ref: "Tune partitions by target size per task, not by a big round number."
+  },
+
+  {
+    id: "collect-driver",
+    domain: "monitor",
+    objective: "Identify and resolve errors → Notebook errors",
+    title: "The driver that ran out of memory",
+    scenario: "A validation notebook worked fine against a sample. Pointed at the full 80 million-row table it fails after several minutes with a driver out-of-memory error, before writing anything.",
+    listing: "Notebook — validate_orders",
+    lines: [
+      "df = spark.read.table('silver.orders')   #cm(~80M rows)",
+      "rows = df.collect()",
+      "bad = [r for r in rows if r['total'] < 0]",
+      "print(f'{len(bad)} negative totals')"
+    ],
+    fault: 2,
+    hint: "Where does the data physically end up after line 2?",
+    why: "<em>collect()</em> pulls every row into the driver's memory, so an 80 million-row table is guaranteed to exhaust it no matter how many executors you add. Do the work in Spark — <em>df.filter(col('total') &lt; 0).count()</em> — and reserve collect for small, already-aggregated results.",
+    holds: [
+      { line: 1, text: "Reading a managed table is fine; nothing has moved to the driver yet at this point." },
+      { line: 3, text: "The predicate itself is correct — it just belongs in a Spark filter rather than a Python list comprehension." },
+      { line: 4, text: "Printing a count is a reasonable output for a validation notebook." }
+    ],
+    ref: "collect(), toPandas() and show(n=huge) all end at the driver. Size accordingly."
+  },
+
+  {
+    id: "direct-lake-refresh",
+    domain: "monitor",
+    objective: "Monitor Fabric items → Monitor semantic model refresh",
+    title: "Refreshing a model that does not import",
+    scenario: "A Direct Lake semantic model sits on the gold warehouse. Someone has scheduled a full refresh every 15 minutes to 'keep it current'. It burns capacity and reports still lag behind the load.",
+    listing: "Semantic model settings — SM_Sales_Gold",
+    lines: [
+      "storage_mode:  Direct Lake",
+      "refresh:       scheduled full refresh, every 15 minutes",
+      "source:        WH_Sales gold tables (Delta in OneLake)",
+      "fallback:      DirectQuery allowed"
+    ],
+    fault: 2,
+    hint: "Ask what a Direct Lake model actually has to copy in.",
+    why: "Direct Lake reads the Delta files at query time — there is no import to refresh. Framing picks up new Delta commits, so the fix is to drop the schedule and, if you need tighter currency, reframe after the load completes as a pipeline step. Chasing it with import-style refreshes just consumes capacity units.",
+    holds: [
+      { line: 1, text: "Direct Lake is the right storage mode for a model over OneLake Delta tables." },
+      { line: 3, text: "A warehouse's gold tables are a valid Direct Lake source." },
+      { line: 4, text: "Leaving DirectQuery fallback available keeps queries answerable if a guardrail is exceeded." }
+    ],
+    ref: "Import refreshes copy data. Direct Lake frames metadata. Don't schedule the wrong one."
+  },
+
+  {
+    id: "eventhouse-cache",
+    domain: "monitor",
+    objective: "Optimize performance → Optimize Eventstreams and Eventhouses",
+    title: "Dashboards querying cold storage",
+    scenario: "An operations dashboard over an Eventhouse is fast for today's data and painfully slow the moment anyone widens the range to a month — same query shape, twenty times the latency.",
+    listing: "Eventhouse policies — TelemetryDB / Readings",
+    lines: [
+      "retention_policy:  90 days",
+      "caching_policy:    3 days   #cm(hot cache)",
+      "dashboard_range:   default 30 days, users often widen to 90",
+      "partitioning:      by ingestion time"
+    ],
+    fault: 2,
+    hint: "Two of these numbers describe how much data is fast. They disagree with each other.",
+    why: "The caching policy sets how much data is kept on local SSD; beyond it, queries read from cold storage. A three-day cache against a 30–90 day query pattern means almost every dashboard query is cold. Raise the caching policy toward the range users actually query, noting the trade-off — hot cache consumes more capacity than cold storage.",
+    holds: [
+      { line: 1, text: "90-day retention matches the stated history requirement." },
+      { line: 3, text: "This is the usage pattern the policies must serve — the requirement, not the fault." },
+      { line: 4, text: "Ingestion-time partitioning is a sensible default for append-only telemetry." }
+    ],
+    ref: "Retention says how long data exists. Caching says how much of it is fast."
+  },
+
+  {
+    id: "vorder-read-heavy",
+    domain: "monitor",
+    objective: "Optimize performance → Optimize query performance",
+    title: "The write optimisation that cost the reads",
+    scenario: "Load times on a gold aggregate table were trimmed a few months ago. Since then the Direct Lake reports over it have grown steadily slower, and the table is now the slowest thing in the workspace.",
+    listing: "Table configuration — gold.agg_sales_daily",
+    lines: [
+      "usage:      written once nightly, read by ~400 report users all day",
+      "v_order:    disabled   #cm(to speed up the nightly write)",
+      "optimize:   after each load",
+      "statistics: automatic"
+    ],
+    fault: 2,
+    hint: "Weigh the beneficiary of that setting against who actually uses this table.",
+    why: "V-Order applies a read-optimising sort and encoding as Delta Parquet is written. Disabling it does shorten the write, but this table is written once and read all day by Direct Lake — precisely the workload V-Order exists for. Re-enable it and pay the cost once per night. Disabling it is defensible only for write-heavy staging nobody queries directly.",
+    holds: [
+      { line: 1, text: "This usage profile is the clue: overwhelmingly read-heavy, so reads should win any trade-off." },
+      { line: 3, text: "Running OPTIMIZE after each load keeps file sizes healthy and is good practice." },
+      { line: 4, text: "Automatic statistics help the engine plan queries and should stay on." }
+    ],
+    ref: "Optimise for the operation that happens most. Count reads and writes before choosing."
+  },
+
+  {
+    id: "capacity-metrics",
+    domain: "monitor",
+    objective: "Monitor Fabric items → Monitor ingestion and configure alerts",
+    title: "Diagnosing a slowdown without the metrics",
+    scenario: "Every afternoon interactive queries crawl. Nothing in the pipeline run history looks unusual, and the team has been resizing the capacity up and down by feel for a fortnight.",
+    listing: "Investigation plan — afternoon slowdown",
+    lines: [
+      "symptom:  interactive queries slow, 14:00–17:00, most weekdays",
+      "evidence: pipeline run durations from the Monitoring hub",
+      "action:   scale F16 → F32 during the window, observe",
+      "goal:     find which workload is consuming the capacity"
+    ],
+    fault: 2,
+    hint: "The goal on line 4 asks about capacity consumption. Does the evidence measure that?",
+    why: "Run durations tell you how long items took, not how many capacity units they burned or whether throttling kicked in. The Fabric <em>Capacity Metrics</em> app is the tool here — it attributes CU consumption per item and operation and shows overload and throttling. Scaling blind, as on line 3, changes the symptom without ever identifying the cause.",
+    holds: [
+      { line: 1, text: "A precise, reproducible time window is a good starting observation." },
+      { line: 3, text: "Scaling is a legitimate remedy — premature here, but not wrong in itself." },
+      { line: 4, text: "This is the right question to be asking; line 2 simply cannot answer it." }
+    ],
+    ref: "Background operations are smoothed over hours. Only the metrics app shows the CU truth."
+  }
+
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   Validation — a malformed entry must fail loudly at boot, never
+   render a card with explanations attached to the wrong lines.
+   ═══════════════════════════════════════════════════════════════ */
+function validate(bank) {
+  const ok = [], problems = [], ids = Object.create(null);
+  const required = ["domain", "objective", "title", "scenario", "listing", "hint", "why", "ref"];
+
+  bank.forEach((f, i) => {
+    const p = [];
+    const label = (f && f.id) || "index " + i;
+
+    if (!f || typeof f !== "object") { problems.push(label + ": not an object"); return; }
+    if (!f.id) p.push("missing id");
+    else if (ids[f.id]) p.push("duplicate id");
+    ids[f.id] = true;
+
+    if (!DOMAINS[f.domain]) p.push("unknown domain '" + f.domain + "'");
+    required.forEach(k => { if (!f[k]) p.push("missing " + k); });
+
+    const n = Array.isArray(f.lines) ? f.lines.length : 0;
+    if (n < 2 || n > 9) p.push("needs 2–9 lines, has " + n);
+    if (!Number.isInteger(f.fault) || f.fault < 1 || f.fault > n) {
+      p.push("fault must be a line number 1–" + n + ", got " + f.fault);
+    } else {
+      // holds must cover every non-fault line exactly once
+      const holds = Array.isArray(f.holds) ? f.holds : [];
+      const got = Object.create(null);
+      holds.forEach(h => {
+        if (!h || !Number.isInteger(h.line) || !h.text) { p.push("malformed hold"); return; }
+        if (h.line === f.fault) p.push("hold points at the fault line (" + h.line + ")");
+        else if (h.line < 1 || h.line > n) p.push("hold for nonexistent line " + h.line);
+        else if (got[h.line]) p.push("duplicate hold for line " + h.line);
+        else got[h.line] = true;
+      });
+      for (let L = 1; L <= n; L++) {
+        if (L !== f.fault && !got[L]) p.push("no hold for line " + L);
+      }
+    }
+
+    if (p.length) problems.push(label + " — " + p.join("; "));
+    else ok.push(f);
+  });
+
+  return { ok: ok, problems: problems };
+}
+
+const CHECK = validate(BANK);
+const FAULTS = CHECK.ok;
+if (CHECK.problems.length) {
+  console.error("Misconfigured: " + CHECK.problems.length + " bank entr" +
+    (CHECK.problems.length === 1 ? "y was" : "ies were") + " rejected:\n" +
+    CHECK.problems.join("\n"));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Progress store — versioned, migrating, and safe when storage
+   is unavailable (private windows, blocked cookies, full quota).
+   ═══════════════════════════════════════════════════════════════ */
+const KEY = "misconfigured-dp700";
+const LEGACY_KEY = "misconfigured-dp700-v1";
+let persists = true;
+
+function blankStore() { return { v: 2, items: {}, streak: 0, best: 0 }; }
+
+function readStore() {
+  let ls = null;
+  try {
+    ls = window.localStorage;
+    const probe = "__mc_probe__";
+    ls.setItem(probe, "1");
+    ls.removeItem(probe);
+  } catch (e) {
+    persists = false;
+    return blankStore();
+  }
+
+  try {
+    const raw = ls.getItem(KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && p.v === 2 && p.items && typeof p.items === "object") {
+        return {
+          v: 2,
+          items: p.items,
+          streak: Number(p.streak) || 0,
+          best: Number(p.best) || 0
+        };
+      }
+    }
+    // migrate the v1 shape: { correct:{id:true}, attempted:{id:true}, streak }
+    const legacy = ls.getItem(LEGACY_KEY);
+    if (legacy) {
+      const old = JSON.parse(legacy);
+      const s = blankStore();
+      Object.keys((old && old.attempted) || {}).forEach(id => {
+        const right = !!(old.correct && old.correct[id]);
+        s.items[id] = { a: 1, c: right ? 1 : 0, f: right ? 1 : 0 };
+      });
+      s.streak = Number(old && old.streak) || 0;
+      s.best = s.streak;
+      return s;
+    }
+  } catch (e) {
+    // corrupt payload — start clean rather than crash
+    console.warn("Misconfigured: unreadable saved progress, starting fresh.", e);
+  }
+  return blankStore();
+}
+
+const store = readStore();
+
+function writeStore() {
+  if (!persists) return;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(store));
+  } catch (e) {
+    persists = false;
+    renderNotice();
+  }
+}
+
+function rec(id) {
+  return store.items[id] || { a: 0, c: 0, f: 0 };
+}
+function mastered(f) { return rec(f.id).c === 1; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Session state
+   ═══════════════════════════════════════════════════════════════ */
+let filter = null;     // null = all domains
+let deck = [];         // shuffled queue of unmastered faults in scope
+let current = null;
+let lastId = null;     // guards against showing the same fault twice running
+let answered = false;
+let hinted = false;
+
+const stage = document.getElementById("stage");
+const metersEl = document.getElementById("meters");
+const noticeEl = document.getElementById("notice");
+const announceEl = document.getElementById("announce");
+
+/* ── helpers ─────────────────────────────────────────────────── */
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function code(text) {
+  const m = String(text).match(/^([\s\S]*?)\s*#cm\(([\s\S]*)\)\s*$/);
+  if (!m) return esc(text);
+  return esc(m[1]) + '  <span class="cm">// ' + esc(m[2]) + "</span>";
+}
+
+function shuffle(a) {
+  const out = a.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = out[i]; out[i] = out[j]; out[j] = t;
+  }
+  return out;
+}
+
+function inScope() {
+  return FAULTS.filter(f => !filter || f.domain === filter);
+}
+
+function announce(msg) { announceEl.textContent = msg; }
+
+/* ── notice bar ──────────────────────────────────────────────── */
+function renderNotice() {
+  const bits = [];
+  if (!persists) {
+    bits.push("<b>Note</b> &nbsp;This browser is not allowing local storage, so progress will reset when you close the tab.");
+  }
+  if (CHECK.problems.length) {
+    bits.push("<b>Bank</b> &nbsp;" + CHECK.problems.length + " entr" +
+      (CHECK.problems.length === 1 ? "y was" : "ies were") +
+      " rejected as malformed and skipped — see the browser console.");
+  }
+  noticeEl.innerHTML = bits.map(b => '<div class="notice">' + b + "</div>").join("");
+}
+
+/* ── rail ────────────────────────────────────────────────────── */
+function buildMeters() {
+  metersEl.innerHTML = "";
+  Object.keys(DOMAINS).forEach(key => {
+    const d = DOMAINS[key];
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "meter";
+    b.dataset.domain = key;
+    b.setAttribute("aria-pressed", String(filter === key));
+    b.innerHTML =
+      '<span class="meter-head"><span class="meter-name">' + esc(d.name) + "</span>" +
+      '<span class="meter-weight">' + esc(d.weight) + "</span></span>" +
+      '<span class="meter-track"><span class="meter-fill"></span><span class="meter-first"></span></span>' +
+      '<span class="meter-count"></span>';
+    b.addEventListener("click", () => setFilter(filter === key ? null : key));
+    metersEl.appendChild(b);
+  });
+  paintRail();
+}
+
+function paintRail() {
+  Object.keys(DOMAINS).forEach(key => {
+    const all = FAULTS.filter(f => f.domain === key);
+    const found = all.filter(f => rec(f.id).c === 1).length;
+    const first = all.filter(f => rec(f.id).f === 1).length;
+    const el = metersEl.querySelector('[data-domain="' + key + '"]');
+    if (!el) return;
+    const pct = all.length ? (found / all.length) * 100 : 0;
+    const fpct = all.length ? (first / all.length) * 100 : 0;
+    el.querySelector(".meter-fill").style.width = pct + "%";
+    el.querySelector(".meter-first").style.width = fpct + "%";
+    el.querySelector(".meter-count").textContent =
+      found + " of " + all.length + " found · " + first + " first try";
+    el.setAttribute("aria-pressed", String(filter === key));
+  });
+
+  const scope = inScope();
+  const found = scope.filter(f => rec(f.id).c === 1).length;
+  const tried = scope.filter(f => rec(f.id).a > 0).length;
+  const first = scope.filter(f => rec(f.id).f === 1).length;
+
+  document.getElementById("t-found").textContent = found + "/" + scope.length;
+  document.getElementById("t-first").textContent = tried ? Math.round((first / tried) * 100) + "%" : "—";
+  const st = document.getElementById("t-streak");
+  st.textContent = store.streak;
+  st.classList.toggle("hot", store.streak >= 3);
+}
+
+function setFilter(key) {
+  filter = key;
+  deck = [];
+  try {
+    const want = key ? "#" + key : " ";
+    if (key) { if (location.hash !== want) location.hash = key; }
+    else if (location.hash) { history.replaceState(null, "", location.pathname + location.search); }
+  } catch (e) { /* hash is a nicety, never fatal */ }
+  buildMeters();
+  advance();
+}
+
+/* ── deck ────────────────────────────────────────────────────── */
+function refill() {
+  deck = shuffle(inScope().filter(f => !mastered(f)));
+  lastId = null;
+}
+
+function advance() {
+  answered = false;
+  hinted = false;
+  if (!deck.length) refill();
+
+  // Never serve the same fault twice in a row — rotate past it if there
+  // is an alternative, and fall through to the summary if there is not.
+  if (deck.length > 1 && deck[0].id === lastId) deck.push(deck.shift());
+  if (deck.length === 1 && deck[0].id === lastId) {
+    current = null;
+    render();
+    return;
+  }
+
+  current = deck.length ? deck.shift() : null;
+  if (current) lastId = current.id;
+  render();
+  if (window.scrollY > 8) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+function requeue(f) {
+  // send a missed or skipped fault back to the end of this run
+  if (f && deck.indexOf(f) === -1) deck.push(f);
+}
+
+/* ── card ────────────────────────────────────────────────────── */
+function render() {
+  if (!FAULTS.length) {
+    stage.innerHTML =
+      '<article class="card"><div class="done"><h2>Nothing to drill</h2>' +
+      "<p>Every entry in the fault bank failed validation, so there is nothing to show. " +
+      "Open the browser console for the specific problems.</p></div></article>";
+    return;
+  }
+  if (!current) { renderSummary(); return; }
+
+  const f = current;
+  const scope = inScope();
+  const found = scope.filter(x => rec(x.id).c === 1).length;
+  const r = rec(f.id);
+
+  const lines = f.lines.map((t, i) =>
+    '<button class="line" type="button" data-line="' + (i + 1) + '">' +
+      '<span class="line-no" aria-hidden="true">' + (i + 1) + "</span>" +
+      '<span class="line-code">' + code(t) + "</span>" +
+    "</button>"
+  ).join("");
+
+  stage.innerHTML =
+    '<article class="card fade-in">' +
+      '<div class="card-head">' +
+        '<div class="objective"><strong>' + esc(DOMAINS[f.domain].name) +
+          "</strong> <span>&nbsp;·&nbsp; " + esc(f.objective) + "</span></div>" +
+        (r.a > 0 ? '<span class="again">seen before</span>' : "") +
+        '<div class="counter">' + found + " / " + scope.length + " found</div>" +
+      "</div>" +
+      '<div class="scenario"><h2>' + esc(f.title) + "</h2><p>" + esc(f.scenario) + "</p></div>" +
+      '<div class="listing-label">' + esc(f.listing) + "</div>" +
+      '<div class="listing" id="listing" role="group" aria-label="Configuration lines — choose the line at fault">' +
+        lines +
+      "</div>" +
+      '<div class="prompt">' +
+        '<span class="q">Which line is at fault?</span>' +
+        '<button class="btn" type="button" id="hintbtn">Hint</button>' +
+        '<button class="btn" type="button" id="skipbtn">Skip</button>' +
+      "</div>" +
+      '<div id="hintslot"></div>' +
+      '<div id="verdictslot"></div>' +
+    "</article>";
+
+  stage.querySelectorAll(".line").forEach(b => {
+    b.addEventListener("click", () => answer(Number(b.dataset.line)));
+  });
+  document.getElementById("hintbtn").addEventListener("click", showHint);
+  document.getElementById("skipbtn").addEventListener("click", () => {
+    requeue(current);
+    announce("Skipped. It will come back later in this run.");
+    advance();
+  });
+
+  announce(f.title + ". " + f.lines.length + " lines. Which line is at fault?");
+}
+
+function showHint() {
+  if (answered || hinted || !current) return;
+  hinted = true;
+  document.getElementById("hintslot").innerHTML =
+    '<div class="hint fade-in"><strong>Hint</strong>' + esc(current.hint) + "</div>";
+  const hb = document.getElementById("hintbtn");
+  if (hb) hb.disabled = true;
+  announce("Hint: " + current.hint);
+}
+
+function answer(picked) {
+  if (answered || !current) return;
+  const f = current;
+  if (!Number.isInteger(picked) || picked < 1 || picked > f.lines.length) return;
+
+  answered = true;
+  const right = picked === f.fault;
+
+  const r = rec(f.id);
+  const firstAttempt = r.a === 0;
+  store.items[f.id] = {
+    a: r.a + 1,
+    c: r.c === 1 || right ? 1 : 0,
+    f: r.f === 1 || (right && firstAttempt) ? 1 : 0
+  };
+  store.streak = right ? store.streak + 1 : 0;
+  if (store.streak > store.best) store.best = store.streak;
+  writeStore();
+  paintRail();
+
+  if (!right) requeue(f);
+
+  stage.querySelectorAll(".line").forEach(b => {
+    const L = Number(b.dataset.line);
+    b.disabled = true;
+    if (L === f.fault) {
+      b.dataset.mark = "fault";
+      b.querySelector(".line-code").insertAdjacentHTML("beforeend", '<span class="tag f">fault</span>');
+    } else if (L === picked) {
+      b.dataset.mark = "picked-ok";
+      b.querySelector(".line-code").insertAdjacentHTML("beforeend", '<span class="tag p">your pick</span>');
+    } else {
+      b.dataset.mark = "ok";
+    }
+  });
+
+  ["hintbtn", "skipbtn"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = true;
+  });
+
+  const holds = f.holds
+    .slice()
+    .sort((a, b) => a.line - b.line)
+    .map(h => '<li><span class="ln">' + h.line + "</span><span>" + h.text + "</span></li>")
+    .join("");
+
+  const left = inScope().filter(x => !mastered(x)).length;
+
+  document.getElementById("verdictslot").innerHTML =
+    '<div class="verdict fade-in" data-state="' + (right ? "pass" : "fail") + '">' +
+      '<div class="verdict-head"><h3>' + (right ? "Found it" : "Not that one") + "</h3>" +
+        '<span class="where">line ' + f.fault + " is the fault" +
+        (right ? "" : " · this one comes back later") + "</span></div>" +
+      '<p class="why">' + f.why + "</p>" +
+      '<div class="holds"><span class="eyebrow">Why the other lines hold</span><ul>' + holds + "</ul></div>" +
+      '<div class="verdict-foot">' +
+        '<span class="ref">' + esc(f.ref) + "</span>" +
+        '<button class="btn primary" type="button" id="nextbtn">' +
+          (left ? "Next fault" : "See summary") + "</button>" +
+      "</div>" +
+    "</div>";
+
+  const nb = document.getElementById("nextbtn");
+  nb.addEventListener("click", advance);
+  nb.focus({ preventScroll: true });
+
+  announce((right ? "Correct. " : "Incorrect. ") + "Line " + f.fault + " is the fault. " + f.ref);
+}
+
+/* ── summary ─────────────────────────────────────────────────── */
+function renderSummary() {
+  // Clear the repeat guard: from here, an explicit "next" should be
+  // allowed to re-offer whatever is still outstanding.
+  lastId = null;
+  const scope = inScope();
+  const rows = Object.keys(DOMAINS)
+    .filter(k => !filter || k === filter)
+    .map(k => {
+      const all = FAULTS.filter(f => f.domain === k);
+      const found = all.filter(f => rec(f.id).c === 1).length;
+      const first = all.filter(f => rec(f.id).f === 1).length;
+      return "<tr><td>" + esc(DOMAINS[k].name) + '</td><td class="num">' + found + " / " + all.length +
+        '</td><td class="num">' + first + '</td><td class="num">' +
+        (found ? Math.round((first / found) * 100) + "%" : "—") + "</td></tr>";
+    }).join("");
+
+  const found = scope.filter(f => rec(f.id).c === 1).length;
+  const first = scope.filter(f => rec(f.id).f === 1).length;
+  const missed = scope.filter(f => rec(f.id).a > 0 && rec(f.id).f !== 1);
+
+  stage.innerHTML =
+    '<article class="card fade-in"><div class="done">' +
+      "<h2>" + found + " of " + scope.length + " faults found</h2>" +
+      "<p>" + (first === found
+        ? "Every one on the first look. That is the standard the exam asks for."
+        : first + " of them first time. The rest took a second pass, which is exactly what the retry queue is for.") +
+        " Best streak this browser: " + store.best + ".</p>" +
+      '<table class="sumtable"><thead><tr><th>Domain</th><th class="num">Found</th>' +
+        '<th class="num">First try</th><th class="num">Rate</th></tr></thead>' +
+        "<tbody>" + rows + "</tbody>" +
+        '<tfoot><tr><td>Total</td><td class="num">' + found + " / " + scope.length +
+          '</td><td class="num">' + first + '</td><td class="num">' +
+          (found ? Math.round((first / found) * 100) + "%" : "—") + "</td></tr></tfoot></table>" +
+      (missed.length
+        ? '<div class="missed"><span class="eyebrow">Took more than one look</span><ul>' +
+          missed.map(m => "<li>" + esc(m.title) + " — " + esc(m.ref) + "</li>").join("") +
+          "</ul></div>"
+        : "") +
+      '<div class="verdict-foot">' +
+        '<span class="ref">Pick a single domain in the rail to drill it alone, or run the set again from scratch.</span>' +
+        (missed.length ? '<button class="btn" type="button" id="drillmissed">Drill these ' + missed.length + '</button>' : "") +
+        '<button class="btn primary" type="button" id="againbtn">Run it again</button>' +
+      "</div>" +
+    "</div></article>";
+
+  const dm = document.getElementById("drillmissed");
+  if (dm) dm.addEventListener("click", () => {
+    missed.forEach(f => { const r = rec(f.id); store.items[f.id] = { a: r.a, c: 0, f: r.f }; });
+    store.streak = 0;
+    writeStore();
+    paintRail();
+    deck = [];
+    advance();
+  });
+
+  document.getElementById("againbtn").addEventListener("click", () => {
+    scope.forEach(f => { delete store.items[f.id]; });
+    store.streak = 0;
+    writeStore();
+    paintRail();
+    deck = [];
+    advance();
+  });
+
+  announce("Run complete. " + found + " of " + scope.length + " faults found, " + first + " on the first try.");
+}
+
+/* ── controls ────────────────────────────────────────────────── */
+const resetBtn = document.getElementById("reset");
+let resetTimer = null;
+resetBtn.addEventListener("click", () => {
+  if (resetBtn.dataset.arm !== "1") {
+    resetBtn.dataset.arm = "1";
+    resetBtn.textContent = "Confirm — erase all progress";
+    resetTimer = setTimeout(() => {
+      resetBtn.dataset.arm = "0";
+      resetBtn.textContent = "Reset progress";
+    }, 5000);
+    return;
+  }
+  clearTimeout(resetTimer);
+  resetBtn.dataset.arm = "0";
+  resetBtn.textContent = "Reset progress";
+  store.items = {};
+  store.streak = 0;
+  store.best = 0;
+  writeStore();
+  paintRail();
+  deck = [];
+  advance();
+  announce("Progress erased.");
+});
+
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target || {};
+  const tag = (t.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || t.isContentEditable) return;
+
+  // digit → flag that line
+  if (!answered && current && e.key >= "1" && e.key <= "9") {
+    const n = Number(e.key);
+    if (n <= current.lines.length) { e.preventDefault(); answer(n); }
+    return;
+  }
+
+  // arrows → move focus within the listing
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const lines = Array.prototype.slice.call(stage.querySelectorAll(".line:not(:disabled)"));
+    if (!lines.length) return;
+    e.preventDefault();
+    const at = lines.indexOf(document.activeElement);
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    const to = at === -1 ? (step === 1 ? 0 : lines.length - 1)
+                         : (at + step + lines.length) % lines.length;
+    lines[to].focus();
+    return;
+  }
+
+  const k = e.key.toLowerCase();
+  if (k === "h" && !answered) { e.preventDefault(); showHint(); }
+  if (k === "n") {
+    e.preventDefault();
+    if (!answered && current) requeue(current);
+    advance();
+  }
+  if (k === "enter" && answered) {
+    const nb = document.getElementById("nextbtn");
+    if (nb) { e.preventDefault(); nb.click(); }
+  }
+});
+
+window.addEventListener("hashchange", () => {
+  const k = location.hash.replace(/^#/, "");
+  const want = DOMAINS[k] ? k : null;
+  if (want !== filter) setFilter(want);
+});
+
+/* ── boot ────────────────────────────────────────────────────── */
+renderNotice();
+(function () {
+  const k = location.hash.replace(/^#/, "");
+  if (DOMAINS[k]) filter = k;
+})();
+buildMeters();
+advance();
+</script>
