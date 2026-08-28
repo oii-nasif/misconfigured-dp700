@@ -29,31 +29,30 @@
   :root {
     color-scheme: light;
 
-    --ground:      #EEF1F4;
+    --ground:      #F3F2F1;
     --surface:     #FFFFFF;
-    --surface-sunk:#E4E8ED;
-    --rule:        #CFD6DE;
-    --rule-soft:   #E1E6EB;
+    --surface-sunk:#EDEBE9;
+    --rule:        #C8C6C4;
+    --rule-soft:   #E1DFDD;
 
-    --ink:         #161B22;
-    --ink-mid:     #4C5866;
-    --ink-soft:    #596878;   /* 5.71:1 on surface, 4.64:1 on surface-sunk — AA for small text */
+    --ink:         #242424;
+    --ink-mid:     #484644;
+    --ink-soft:    #605E5C;   /* 5.94:1 on surface, 4.98:1 on surface-sunk — AA for small text */
 
-    --accent:      #0E7C86;
-    --accent-deep: #0A5C64;
-    --accent-wash: #DCEBEC;
+    --accent:      #117865;   /* Microsoft Fabric green */
+    --accent-deep: #0C5A4C;
+    --accent-wash: #DBF0E9;
 
-    --pass:        #3F8B57;
-    --pass-wash:   #DFEDE3;
-    --fault:       #BB3F35;
-    --fault-wash:  #F6E2DF;
-    --amber:       #A8741A;
-    --amber-wash:  #F5E9D3;
+    --pass:        #107C10;
+    --pass-wash:   #DFF6DD;
+    --fault:       #C50F1F;
+    --fault-wash:  #FDE7E9;
+    --amber:       #8F6200;
+    --amber-wash:  #FFF4CE;
 
-    --mono: "Cascadia Mono", Consolas, "SF Mono", "Menlo", "DejaVu Sans Mono", monospace;
-    --body: Candara, Optima, "Gill Sans Nova", "Gill Sans", "Segoe UI", system-ui, sans-serif;
-    --disp: "Bahnschrift SemiCondensed", "Bahnschrift", "Avenir Next Condensed",
-            "HelveticaNeue-CondensedBold", "Roboto Condensed", var(--body);
+    --mono: "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", "Menlo", "DejaVu Sans Mono", monospace;
+    --body: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --disp: "Segoe UI Variable Display", "Segoe UI Semibold", "Segoe UI", var(--body);
 
     --s-1:  0.8125rem;
     --s-0:  1rem;
@@ -62,49 +61,49 @@
     --s3:   2.125rem;
 
     --gut: clamp(1rem, 3vw, 2.5rem);
-    --card-radius: 3px;
+    --card-radius: 8px;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
       color-scheme: dark;
-      --ground:      #12171D;
-      --surface:     #1A2129;
-      --surface-sunk:#0E1318;
-      --rule:        #2E3A46;
-      --rule-soft:   #232D37;
-      --ink:         #E4E9EE;
-      --ink-mid:     #A3B0BD;
-      --ink-soft:    #7C8B99;
-      --accent:      #3FB4B8;
-      --accent-deep: #6FD3D5;
-      --accent-wash: #10333A;
-      --pass:        #62B87C;
+      --ground:      #1B1A19;
+      --surface:     #252423;
+      --surface-sunk:#141413;
+      --rule:        #3B3A39;
+      --rule-soft:   #2D2C2B;
+      --ink:         #F3F2F1;
+      --ink-mid:     #C8C6C4;
+      --ink-soft:    #979593;
+      --accent:      #4CC2A5;
+      --accent-deep: #7CD1B8;
+      --accent-wash: #0C3B2F;
+      --pass:        #6BB86A;
       --pass-wash:   #16301F;
-      --fault:       #E4695C;
-      --fault-wash:  #351815;
-      --amber:       #D99A2B;
-      --amber-wash:  #33260E;
+      --fault:       #F1707B;
+      --fault-wash:  #3F1418;
+      --amber:       #E0A339;
+      --amber-wash:  #3A2E0F;
     }
   }
 
   :root[data-theme="light"] {
     color-scheme: light;
-    --ground:#EEF1F4; --surface:#FFFFFF; --surface-sunk:#E4E8ED;
-    --rule:#CFD6DE; --rule-soft:#E1E6EB;
-    --ink:#161B22; --ink-mid:#4C5866; --ink-soft:#596878;
-    --accent:#0E7C86; --accent-deep:#0A5C64; --accent-wash:#DCEBEC;
-    --pass:#3F8B57; --pass-wash:#DFEDE3; --fault:#BB3F35; --fault-wash:#F6E2DF;
-    --amber:#A8741A; --amber-wash:#F5E9D3;
+    --ground:#F3F2F1; --surface:#FFFFFF; --surface-sunk:#EDEBE9;
+    --rule:#C8C6C4; --rule-soft:#E1DFDD;
+    --ink:#242424; --ink-mid:#484644; --ink-soft:#605E5C;
+    --accent:#117865; --accent-deep:#0C5A4C; --accent-wash:#DBF0E9;
+    --pass:#107C10; --pass-wash:#DFF6DD; --fault:#C50F1F; --fault-wash:#FDE7E9;
+    --amber:#8F6200; --amber-wash:#FFF4CE;
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --ground:#12171D; --surface:#1A2129; --surface-sunk:#0E1318;
-    --rule:#2E3A46; --rule-soft:#232D37;
-    --ink:#E4E9EE; --ink-mid:#A3B0BD; --ink-soft:#7C8B99;
-    --accent:#3FB4B8; --accent-deep:#6FD3D5; --accent-wash:#10333A;
-    --pass:#62B87C; --pass-wash:#16301F; --fault:#E4695C; --fault-wash:#351815;
-    --amber:#D99A2B; --amber-wash:#33260E;
+    --ground:#1B1A19; --surface:#252423; --surface-sunk:#141413;
+    --rule:#3B3A39; --rule-soft:#2D2C2B;
+    --ink:#F3F2F1; --ink-mid:#C8C6C4; --ink-soft:#979593;
+    --accent:#4CC2A5; --accent-deep:#7CD1B8; --accent-wash:#0C3B2F;
+    --pass:#6BB86A; --pass-wash:#16301F; --fault:#F1707B; --fault-wash:#3F1418;
+    --amber:#E0A339; --amber-wash:#3A2E0F;
   }
 
   /* ─── frame ─────────────────────────────────────────────────── */
