@@ -6,6 +6,11 @@
 
 No install, no account, no capacity. One HTML file that opens in about 200 ms and works offline. Built for the Microsoft Fabric Discord **Certification Prep Challenge** (builder track).
 
+
+https://github.com/user-attachments/assets/962fb20e-3c3a-4380-8279-6404c95fb2d7
+
+
+
 ![Eight views: drill, verdict, mock exam, the Sure / Not sure call, exam result, daily fault, field guide, and dark mode](images/collage.png)
 
 ## What it does
