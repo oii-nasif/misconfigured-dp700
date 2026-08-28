@@ -50,6 +50,12 @@
     --amber:       #8F6200;
     --amber-wash:  #FFF4CE;
 
+    --blue:        #0F6CBD;
+    --blue-deep:   #0A4A82;
+    --purple:      #7A5AC2;
+    --purple-deep: #57408F;
+    --grad: linear-gradient(90deg, #117865, #0F6CBD 55%, #7A5AC2);
+
     --mono: "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", "Menlo", "DejaVu Sans Mono", monospace;
     --body: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
     --disp: "Segoe UI Variable Display", "Segoe UI Semibold", "Segoe UI", var(--body);
@@ -84,6 +90,11 @@
       --fault-wash:  #3F1418;
       --amber:       #E0A339;
       --amber-wash:  #3A2E0F;
+      --blue:        #479EF5;
+      --blue-deep:   #7CB9F8;
+      --purple:      #A98FE0;
+      --purple-deep: #C3B0EC;
+      --grad: linear-gradient(90deg, #4CC2A5, #479EF5 55%, #A98FE0);
     }
   }
 
@@ -95,6 +106,8 @@
     --accent:#117865; --accent-deep:#0C5A4C; --accent-wash:#DBF0E9;
     --pass:#107C10; --pass-wash:#DFF6DD; --fault:#C50F1F; --fault-wash:#FDE7E9;
     --amber:#8F6200; --amber-wash:#FFF4CE;
+    --blue:#0F6CBD; --blue-deep:#0A4A82; --purple:#7A5AC2; --purple-deep:#57408F;
+    --grad: linear-gradient(90deg, #117865, #0F6CBD 55%, #7A5AC2);
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
@@ -104,6 +117,8 @@
     --accent:#4CC2A5; --accent-deep:#7CD1B8; --accent-wash:#0C3B2F;
     --pass:#6BB86A; --pass-wash:#16301F; --fault:#F1707B; --fault-wash:#3F1418;
     --amber:#E0A339; --amber-wash:#3A2E0F;
+    --blue:#479EF5; --blue-deep:#7CB9F8; --purple:#A98FE0; --purple-deep:#C3B0EC;
+    --grad: linear-gradient(90deg, #4CC2A5, #479EF5 55%, #A98FE0);
   }
 
   /* ─── frame ─────────────────────────────────────────────────── */
@@ -117,13 +132,18 @@
   }
 
   .masthead {
+    position: relative;
     border-bottom: 1px solid var(--rule);
     background: var(--surface);
-    padding: 0.6rem var(--gut);
+    padding: 0.75rem var(--gut) 0.6rem;
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.15rem 1rem;
+  }
+  .masthead::before {   /* Fabric-gradient signature strip */
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: var(--grad);
   }
   .wordmark {
     font-family: var(--disp);
@@ -133,6 +153,13 @@
     line-height: 1;
   }
   .wordmark b { color: var(--accent); font-weight: 600; }
+  @supports (-webkit-background-clip: text) or (background-clip: text) {
+    .wordmark b {
+      background: var(--grad);
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent;
+    }
+  }
   .masthead .sub {
     font-size: var(--s-1);
     color: var(--ink-soft);
@@ -174,23 +201,31 @@
     color: var(--ink-soft);
   }
 
+  /* one hue per exam domain, echoing Fabric's workload colors */
+  .meter[data-domain="implement"], .dom-implement { --dm: var(--accent); --dm-deep: var(--accent-deep); }
+  .meter[data-domain="ingest"],    .dom-ingest    { --dm: var(--blue);   --dm-deep: var(--blue-deep); }
+  .meter[data-domain="monitor"],   .dom-monitor   { --dm: var(--purple); --dm-deep: var(--purple-deep); }
+
   .meters { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.7rem; }
   .meter { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0.35rem 0; cursor: pointer; color: inherit; font: inherit; }
   .meter-head { display: flex; align-items: baseline; gap: 0.5rem; }
   .meter-name { font-size: var(--s-1); font-weight: 600; flex: 1; }
   .meter-weight { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .meter-track { height: 6px; background: var(--surface-sunk); margin-top: 0.4rem; border: 1px solid var(--rule-soft); position: relative; overflow: hidden; }
-  .meter-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width 420ms cubic-bezier(.2,.7,.3,1); }
-  .meter-first { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-deep); opacity: 0.55; transition: width 420ms cubic-bezier(.2,.7,.3,1); }
+  .meter-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--dm, var(--accent)); transition: width 420ms cubic-bezier(.2,.7,.3,1); }
+  .meter-first { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--dm-deep, var(--accent-deep)); opacity: 0.55; transition: width 420ms cubic-bezier(.2,.7,.3,1); }
   .meter-count { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-soft); margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
-  .meter[aria-pressed="true"] .meter-name { color: var(--accent); }
-  .meter[aria-pressed="true"] .meter-track { border-color: var(--accent); }
+  .meter[aria-pressed="true"] .meter-name { color: var(--dm, var(--accent)); }
+  .meter[aria-pressed="true"] .meter-track { border-color: var(--dm, var(--accent)); }
   .meter:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .meter:disabled { opacity: 0.55; cursor: default; }
 
   .tally { border-top: 1px solid var(--rule); padding-top: 1.1rem; display: flex; gap: 1.75rem; }
   .tally div { display: flex; flex-direction: column; }
   .tally .n { font-family: var(--disp); font-size: var(--s3); line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tally div:nth-child(1) .n { color: var(--accent); }
+  .tally div:nth-child(2) .n { color: var(--blue); }
+  .tally div:nth-child(3) .n { color: var(--purple); }
   .tally .n.hot { color: var(--amber); }
   .tally .k { font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-top: 0.35rem; }
 
@@ -209,6 +244,7 @@
   .card {
     background: var(--surface);
     border: 1px solid var(--rule);
+    border-top: 3px solid var(--dm, var(--accent));
     border-radius: var(--card-radius);
     overflow: hidden;
   }
@@ -218,6 +254,7 @@
     border-bottom: 1px solid var(--rule-soft);
   }
   .card-head .objective { font-size: var(--s-1); color: var(--ink-mid); margin-right: auto; }
+  .card-head .objective strong { color: var(--dm, var(--ink)); }
   .card-head .objective span { color: var(--ink-soft); }
   .card-head .counter { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .card-head .again { font-family: var(--disp); font-size: 0.625rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); border: 1px solid currentColor; padding: 0.05em 0.4em; }
@@ -398,13 +435,13 @@
   /* ─── premise ───────────────────────────────────────────────── */
   .premise {
     border-bottom: 1px solid var(--rule);
-    background: var(--surface-sunk);
+    background: var(--accent-wash);
     padding: 0.6rem var(--gut);
     font-size: var(--s-1);
     color: var(--ink-mid);
   }
   .premise-inner { max-width: 78rem; margin-inline: auto; }
-  .premise b { color: var(--ink); font-weight: 600; }
+  .premise b { color: var(--accent-deep); font-weight: 600; }
 
   /* ─── mode tabs ─────────────────────────────────────────────── */
   .modes {
@@ -424,7 +461,7 @@
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
   }
-  .mode-tab:hover { color: var(--accent); }
+  .mode-tab:hover { color: var(--accent); background: var(--accent-wash); }
   .mode-tab[aria-current="true"] { color: var(--accent); border-bottom-color: var(--accent); }
   .mode-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   @media (max-width: 30rem) {
@@ -1831,7 +1868,7 @@ function render() {
   ).join("");
 
   stage.innerHTML =
-    '<article class="card fade-in">' +
+    '<article class="card fade-in dom-' + f.domain + '">' +
       '<div class="card-head">' +
         '<div class="objective"><strong>' + esc(DOMAINS[f.domain].name) +
           "</strong> <span>&nbsp;·&nbsp; " + esc(f.objective) + "</span></div>" +
@@ -2000,7 +2037,7 @@ function renderExam() {
   ).join("");
 
   stage.innerHTML =
-    '<article class="card fade-in">' +
+    '<article class="card fade-in dom-' + f.domain + '">' +
       '<div class="card-head">' +
         '<div class="objective"><strong>' + esc(DOMAINS[f.domain].name) +
           "</strong> <span>&nbsp;·&nbsp; " + esc(f.objective) + "</span></div>" +
@@ -2320,7 +2357,7 @@ function renderDaily() {
   const nextIn = Math.max(1, Math.ceil((DAILY_EPOCH + (st.day + 1) * 86400000 - Date.now()) / 3600000));
 
   stage.innerHTML =
-    '<article class="card fade-in">' +
+    '<article class="card fade-in dom-' + f.domain + '">' +
       '<div class="card-head">' +
         '<div class="objective"><strong>' + esc(DOMAINS[f.domain].name) +
           "</strong> <span>&nbsp;·&nbsp; " + esc(f.objective) + "</span></div>" +
