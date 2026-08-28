@@ -1,6 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>Misconfigured — a DP-700 fault-finding drill</title>
+<meta name="description" content="DP-700 hands you a config and asks what is wrong with it. So does this — 32 real Fabric artefacts, one fault each. Drill them, catch the daily fault, sit a seeded mock exam scored out of 1000, or challenge a friend to the identical paper.">
+<meta name="color-scheme" content="light dark">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Misconfigured — a DP-700 fault-finding drill">
+<meta property="og:description" content="32 realistic Fabric configs, one fault each. Daily fault, mastery drill, mock exam with confidence calibration — and challenge links that make a friend sit your exact paper.">
+<meta property="og:url" content="https://oii-nasif.github.io/misconfigured-dp700/">
+<meta property="og:image" content="https://oii-nasif.github.io/misconfigured-dp700/images/screen-drill.png">
+<meta name="twitter:card" content="summary_large_image">
 
 <style>
+  /* ─── reset ─────────────────────────────────────────────────── */
+  /* Standards mode, so normalise the few defaults this layout assumes
+     away: the border-box model, collapsed margins, unindented lists. */
+  *, *::before, *::after { box-sizing: border-box; }
+  body, h1, h2, h3, p, ul, ol, li, table, figure, blockquote { margin: 0; padding: 0; }
+  ul, ol { list-style: none; }
+  button { font-family: inherit; font-size: inherit; color: inherit; }
+  img { max-width: 100%; height: auto; display: block; }
+
   /* ─── tokens ────────────────────────────────────────────────── */
   :root {
     color-scheme: light;
@@ -13,7 +37,7 @@
 
     --ink:         #161B22;
     --ink-mid:     #4C5866;
-    --ink-soft:    #6E7C8C;
+    --ink-soft:    #596878;   /* 5.71:1 on surface, 4.64:1 on surface-sunk — AA for small text */
 
     --accent:      #0E7C86;
     --accent-deep: #0A5C64;
@@ -68,7 +92,7 @@
     color-scheme: light;
     --ground:#EEF1F4; --surface:#FFFFFF; --surface-sunk:#E4E8ED;
     --rule:#CFD6DE; --rule-soft:#E1E6EB;
-    --ink:#161B22; --ink-mid:#4C5866; --ink-soft:#6E7C8C;
+    --ink:#161B22; --ink-mid:#4C5866; --ink-soft:#596878;
     --accent:#0E7C86; --accent-deep:#0A5C64; --accent-wash:#DCEBEC;
     --pass:#3F8B57; --pass-wash:#DFEDE3; --fault:#BB3F35; --fault-wash:#F6E2DF;
     --amber:#A8741A; --amber-wash:#F5E9D3;
@@ -163,6 +187,7 @@
   .meter[aria-pressed="true"] .meter-name { color: var(--accent); }
   .meter[aria-pressed="true"] .meter-track { border-color: var(--accent); }
   .meter:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .meter:disabled { opacity: 0.55; cursor: default; }
 
   .tally { border-top: 1px solid var(--rule); padding-top: 1.1rem; display: flex; gap: 1.75rem; }
   .tally div { display: flex; flex-direction: column; }
@@ -274,6 +299,12 @@
   }
   .tag.f { color: var(--fault); }
   .tag.p { color: var(--ink-soft); }
+  .tag.a { color: var(--amber); }
+  .prompt .btn kbd {
+    font-family: var(--mono); font-size: 0.6875rem;
+    border: 1px solid currentColor; border-radius: 2px;
+    padding: 0 0.3em; margin-left: 0.45em; opacity: 0.75;
+  }
 
   .prompt { padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
   .prompt .q { font-weight: 600; margin-right: auto; }
@@ -314,7 +345,7 @@
   .verdict[data-state="fail"] .verdict-head h3 { color: var(--fault); }
   .verdict-head .where { font-family: var(--mono); font-size: var(--s-1); color: var(--ink-soft); }
   .verdict .why { max-width: 66ch; }
-  .verdict .why em, .holds em { font-style: normal; font-family: var(--mono); font-size: 0.9em; background: var(--surface-sunk); padding: 0.05em 0.3em; border-radius: 2px; }
+  .verdict .why em, .holds em, .review-item em, .review-line em, .done .review-ref em { font-style: normal; font-family: var(--mono); font-size: 0.9em; background: var(--surface-sunk); padding: 0.05em 0.3em; border-radius: 2px; overflow-wrap: anywhere; }
 
   .holds { margin-top: 1.2rem; border-top: 1px solid var(--rule-soft); padding-top: 0.9rem; }
   .holds > .eyebrow { display: block; margin-bottom: 0.55rem; }
@@ -361,12 +392,123 @@
   }
 
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ─── premise ───────────────────────────────────────────────── */
+  .premise {
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-sunk);
+    padding: 0.6rem var(--gut);
+    font-size: var(--s-1);
+    color: var(--ink-mid);
+  }
+  .premise-inner { max-width: 78rem; margin-inline: auto; }
+  .premise b { color: var(--ink); font-weight: 600; }
+
+  /* ─── mode tabs ─────────────────────────────────────────────── */
+  .modes {
+    display: flex;
+    flex-wrap: wrap;   /* fallback (non-condensed) font stacks overflow 375px otherwise */
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 0 var(--gut);
+  }
+  .mode-tab {
+    font-family: var(--disp); font-size: var(--s-1); font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: none; border: 0; cursor: pointer;
+    color: var(--ink-soft);
+    padding: 0.55rem 0.9rem;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .mode-tab:hover { color: var(--accent); }
+  .mode-tab[aria-current="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .mode-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  @media (max-width: 30rem) {
+    /* four tabs must share one row on a phone, even on non-condensed fallback fonts */
+    .mode-tab { padding: 0.55rem 0.5rem; letter-spacing: 0.05em; font-size: 0.75rem; }
+  }
+
+  /* ─── exam ──────────────────────────────────────────────────── */
+  .trace { font-size: var(--s-0); letter-spacing: 2px; margin-top: 0.6rem; word-break: break-all; }
+  .review { margin-top: 1.6rem; display: flex; flex-direction: column; gap: 1rem; }
+  .review > .eyebrow { display: block; }
+  .review-item {
+    border: 1px solid var(--rule-soft);
+    border-left: 3px solid var(--fault);
+    padding: 0.85rem 1rem;
+  }
+  .review-item h3 { font-family: var(--disp); font-size: var(--s-0); font-weight: 600; margin-bottom: 0.25rem; }
+  .review-item .why { max-width: 66ch; margin: 0.35rem 0; }
+  .review-line { font-size: var(--s-1); color: var(--ink-mid); }
+  .review-line .ln { font-family: var(--mono); color: var(--fault); font-variant-numeric: tabular-nums; margin-right: 0.4rem; }
+  .review-ref { font-size: var(--s-1); color: var(--ink-soft); }
+
+  /* ─── field guide ───────────────────────────────────────────── */
+  .guide { padding: 1.4rem 1.25rem 1.75rem; }
+  .guide h2 { font-family: var(--disp); font-size: var(--s2); font-weight: 600; line-height: 1.15; margin-bottom: 0.4rem; }
+  .guide-sub { color: var(--ink-mid); max-width: 62ch; margin-bottom: 1rem; }
+  .guide-search {
+    width: 100%;
+    padding: 0.55rem 0.8rem;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+  }
+  .guide-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .guide-count {
+    font-family: var(--mono); font-size: 0.6875rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 1rem 0 0.15rem;
+  }
+  .rule {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.2rem 1rem;
+    align-items: center;
+    border-bottom: 1px solid var(--rule-soft);
+    padding: 0.85rem 0;
+  }
+  .rule:last-child { border-bottom: 0; }
+  .rule-ref { font-weight: 600; }
+  .rule-meta {
+    font-family: var(--disp); font-size: 0.625rem; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: 0.15rem;
+  }
+  .rule-title { font-size: var(--s-1); color: var(--ink-mid); }
+  .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--rule); margin-right: 0.5rem; vertical-align: 1px;
+    border: 1px solid var(--ink-soft);   /* neutral state must clear 3:1 non-text contrast */
+  }
+  .dot.pass { background: var(--pass); }
+  .dot.amber { background: var(--amber); }
 </style>
+</head>
+<body>
 
 <header class="masthead">
   <div class="wordmark">Mis<b>configured</b></div>
   <p class="sub">Exam DP-700 · Fabric data engineering</p>
 </header>
+
+<nav class="modes" aria-label="Modes">
+  <button class="mode-tab" type="button" data-mode="drill" aria-current="true">Drill</button>
+  <button class="mode-tab" type="button" data-mode="daily">Daily fault</button>
+  <button class="mode-tab" type="button" data-mode="exam">Mock exam</button>
+  <button class="mode-tab" type="button" data-mode="guide">Field guide</button>
+</nav>
+
+<div class="premise">
+  <p class="premise-inner" id="premise">Each listing below is a real Fabric artefact with <b>exactly one fault</b>.
+    Find the line — then read why every other line holds.</p>
+</div>
 
 <div id="notice"></div>
 
@@ -384,7 +526,7 @@
     </div>
 
     <div class="railfoot">
-      <p>Press <kbd>1</kbd>–<kbd>9</kbd> to flag a line, <kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>H</kbd> for a hint, <kbd>N</kbd> to skip.</p>
+      <p id="kbdhint">Press <kbd>1</kbd>–<kbd>9</kbd> to answer a line, <kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>H</kbd> for a hint, <kbd>N</kbd> to skip, <kbd>Enter</kbd> to advance.</p>
       <button class="linkbtn" id="reset" type="button">Reset progress</button>
     </div>
   </aside>
@@ -1270,7 +1412,13 @@ const KEY = "misconfigured-dp700";
 const LEGACY_KEY = "misconfigured-dp700-v1";
 let persists = true;
 
-function blankStore() { return { v: 2, items: {}, streak: 0, best: 0 }; }
+function blankStore() {
+  return {
+    v: 2, items: {}, streak: 0, best: 0, examBest: 0, examRuns: 0,
+    daily: null,          // { day, tries, done } for the current daily fault
+    dailyStreak: 0, dailyBest: 0, dailyLastDay: -1
+  };
+}
 
 function readStore() {
   let ls = null;
@@ -1293,7 +1441,13 @@ function readStore() {
           v: 2,
           items: p.items,
           streak: Number(p.streak) || 0,
-          best: Number(p.best) || 0
+          best: Number(p.best) || 0,
+          examBest: Number(p.examBest) || 0,
+          examRuns: Number(p.examRuns) || 0,
+          daily: p.daily && Number.isInteger(p.daily.day) ? p.daily : null,
+          dailyStreak: Number(p.dailyStreak) || 0,
+          dailyBest: Number(p.dailyBest) || 0,
+          dailyLastDay: Number.isInteger(p.dailyLastDay) ? p.dailyLastDay : -1
         };
       }
     }
@@ -1337,6 +1491,7 @@ function mastered(f) { return rec(f.id).c === 1; }
 /* ═══════════════════════════════════════════════════════════════
    Session state
    ═══════════════════════════════════════════════════════════════ */
+let mode = "drill";    // drill | exam | guide
 let filter = null;     // null = all domains
 let deck = [];         // shuffled queue of unmastered faults in scope
 let current = null;
@@ -1344,13 +1499,33 @@ let lastId = null;     // guards against showing the same fault twice running
 let answered = false;
 let hinted = false;
 
+let exam = null;       // { deck, at, answers:[{id,right}], t0, lock } while a mock exam runs
+let guideQuery = "";
+let booted = false;    // guards focus restoration so the boot render never steals focus
+
+const SITE = "https://oii-nasif.github.io/misconfigured-dp700/";
+const byId = id => FAULTS.find(f => f.id === id);
+
+const PREMISE = {
+  drill: "Each listing below is a real Fabric artefact with <b>exactly one fault</b>. " +
+         "Find the line — then read why every other line holds.",
+  daily: "One fault a day — <b>everyone gets the same one</b>. " +
+         "Find the line, keep the streak, paste the card.",
+  exam:  "Twenty faults at exam weighting, one pass. <b>No hints, no retries, no feedback until the end</b> — " +
+         "and you commit Sure or Not sure on every answer. 700 of 1000 clears the bar, and your result mints a " +
+         "<b>challenge link</b>: anyone who opens it sits this exact paper against your score.",
+  guide: "Every takeaway rule in the bank — searchable, filterable by domain, " +
+         "and each one <b>drillable</b> straight from its row."
+};
+
 const stage = document.getElementById("stage");
 const metersEl = document.getElementById("meters");
 const noticeEl = document.getElementById("notice");
 const announceEl = document.getElementById("announce");
 
 /* ── helpers ─────────────────────────────────────────────────── */
-const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");   // attribute-safe: esc() output is used inside value="…"
 
 function code(text) {
   const m = String(text).match(/^([\s\S]*?)\s*#cm\(([\s\S]*)\)\s*$/);
@@ -1367,11 +1542,76 @@ function shuffle(a) {
   return out;
 }
 
+/* ── seeded randomness ───────────────────────────────────────────
+   Challenge papers and the daily fault must draw identically for
+   everyone, forever, from a short seed. mulberry32 over an FNV-1a
+   hash of the seed string, shuffling pools pre-sorted by id so the
+   draw depends on nothing but the bank and the seed.           ── */
+const SEED_VER = "a";   // bump if the bank changes shape — an old seed must never lie about "same paper"
+
+function seedInt(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle(a, rng) {
+  const out = a.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const t = out[i]; out[i] = out[j]; out[j] = t;
+  }
+  return out;
+}
+
+function newSeed() {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let s = SEED_VER;
+  for (let i = 0; i < 5; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return s;
+}
+
+// "#exam=a3kf9x~850" → { seed, score } (score is the challenger's, optional)
+function parseExamSpec(raw) {
+  if (!raw) return null;
+  const parts = String(raw).split("~");
+  const seed = parts[0].toLowerCase();   // forgive case-mangled links
+  if (!/^[a-z0-9]{4,8}$/.test(seed)) return null;
+  // digits only before coercing — Number("") is 0, which would fabricate a "beat 0" duel
+  const score = parts.length > 1 && /^\d+$/.test(parts[1]) ? Number(parts[1]) : null;
+  return {
+    seed: seed,
+    score: Number.isInteger(score) && score >= 0 && score <= 1000 ? score : null
+  };
+}
+
 function inScope() {
   return FAULTS.filter(f => !filter || f.domain === filter);
 }
 
 function announce(msg) { announceEl.textContent = msg; }
+
+// CSS scroll-behavior can't override an explicit behavior:'smooth' option,
+// so reduced-motion has to be honoured at the call site.
+const prefersReduced = () =>
+  window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+function pageTop() {
+  if (window.scrollY > 8) {
+    window.scrollTo({ top: 0, behavior: prefersReduced() ? "auto" : "smooth" });
+  }
+}
 
 /* ── notice bar ──────────────────────────────────────────────── */
 function renderNotice() {
@@ -1396,6 +1636,7 @@ function buildMeters() {
     b.type = "button";
     b.className = "meter";
     b.dataset.domain = key;
+    b.disabled = mode === "exam" || mode === "daily";   // filters only apply in drill and guide
     b.setAttribute("aria-pressed", String(filter === key));
     b.innerHTML =
       '<span class="meter-head"><span class="meter-name">' + esc(d.name) + "</span>" +
@@ -1436,16 +1677,99 @@ function paintRail() {
   st.classList.toggle("hot", store.streak >= 3);
 }
 
-function setFilter(key) {
-  filter = key;
-  deck = [];
+function syncHash(replace) {
   try {
-    const want = key ? "#" + key : " ";
-    if (key) { if (location.hash !== want) location.hash = key; }
+    const want =
+      mode === "exam"
+        ? "exam" + (exam && exam.seed
+            ? "=" + exam.seed + (exam.challenge !== null ? "~" + exam.challenge : "")
+            : "")
+        : mode === "guide" ? "guide"
+        : mode === "daily" ? "daily"
+        : (filter || "");
+    if (want) {
+      if (location.hash !== "#" + want) {
+        // replace: overwrite the current entry (used when correcting a stale
+        // challenge hash, so Back never lands on the bad link again)
+        if (replace) history.replaceState(null, "", location.pathname + location.search + "#" + want);
+        else location.hash = want;
+      }
+    }
     else if (location.hash) { history.replaceState(null, "", location.pathname + location.search); }
   } catch (e) { /* hash is a nicety, never fatal */ }
+}
+
+function paintTabs() {
+  // aria-current, not aria-pressed: the active tab is a location, not a toggle
+  document.querySelectorAll(".mode-tab").forEach(b => {
+    if (b.dataset.mode === mode) b.setAttribute("aria-current", "true");
+    else b.removeAttribute("aria-current");
+  });
+}
+
+const KBDHINT = {
+  drill: "Press <kbd>1</kbd>–<kbd>9</kbd> to answer a line, <kbd>↑</kbd><kbd>↓</kbd> to move, " +
+         "<kbd>H</kbd> for a hint, <kbd>N</kbd> to skip, <kbd>Enter</kbd> to advance.",
+  daily: "Press <kbd>1</kbd>–<kbd>9</kbd> to answer a line, <kbd>↑</kbd><kbd>↓</kbd> to move between lines.",
+  exam:  "Press <kbd>1</kbd>–<kbd>9</kbd> to answer a line, then <kbd>1</kbd> Sure or <kbd>2</kbd> Not sure.",
+  guide: "Type to search. Every rule has a <em>Drill it</em> button."
+};
+
+function paintPremise() {
+  const el = document.getElementById("premise");
+  if (el) el.innerHTML = PREMISE[mode] || PREMISE.drill;
+  const kh = document.getElementById("kbdhint");
+  if (kh) kh.innerHTML = KBDHINT[mode] || KBDHINT.drill;
+}
+
+function renderMode() {
+  if (mode === "exam") renderExam();
+  else if (mode === "guide") renderGuide();
+  else if (mode === "daily") renderDaily();
+  else render();
+}
+
+function nav(m, spec) {
+  // Same-mode clicks are no-ops — except exam with a pasted challenge, or the
+  // Mock exam tab clicked from a finished result (the natural "deal again").
+  if (m === mode && !(m === "exam" && (spec || (exam && exam.done)))) return;
+  mode = m;
+  paintTabs();
+  paintPremise();
   buildMeters();
-  advance();
+  if (m === "exam") resumeOrStartExam(spec);
+  else if (m === "drill") { deck = []; advance(); }
+  else renderMode();
+  syncHash();   // after the action — the exam hash carries the seed startExam just chose
+}
+
+// An exam abandoned mid-run (tab click, browser Back) resumes rather than
+// silently redrawing — including when the spec arrives via the hash, which
+// always carries the seed now, so a spec naming the paper already in flight
+// means "back to where I was", not "deal again". A different seed is a real
+// challenge and starts that paper. A pick that never got its confidence tap
+// is dropped — the question is served again.
+function resumeOrStartExam(spec) {
+  if (spec && exam && !exam.done && spec.seed === exam.seed) {
+    if (spec.score !== null) exam.challenge = spec.score;   // counter-challenge on the live paper
+    exam.pending = null;
+    renderExam();
+    return;
+  }
+  if (spec) { startExam(spec); return; }
+  if (exam && !exam.done) { exam.pending = null; renderExam(); }
+  else startExam();
+}
+
+function setFilter(key) {
+  // Only drill and guide are filterable; elsewhere a control that visibly
+  // changes nothing reads as broken, so ignore the click entirely.
+  if (mode !== "drill" && mode !== "guide") return;
+  filter = key;
+  deck = [];
+  buildMeters();
+  if (mode === "drill") { syncHash(); advance(); }
+  else renderGuideList();
 }
 
 /* ── deck ────────────────────────────────────────────────────── */
@@ -1459,21 +1783,21 @@ function advance() {
   hinted = false;
   if (!deck.length) refill();
 
-  // Never serve the same fault twice in a row — rotate past it if there
-  // is an alternative, and fall through to the summary if there is not.
+  // Never serve the same fault twice in a row when there is an alternative.
+  // When it is the ONLY card left, an immediate repeat beats a false "done" —
+  // the summary should only ever mean everything in scope was found.
   if (deck.length > 1 && deck[0].id === lastId) deck.push(deck.shift());
-  if (deck.length === 1 && deck[0].id === lastId) {
-    current = null;
-    render();
-    return;
-  }
 
   current = deck.length ? deck.shift() : null;
   if (current) lastId = current.id;
   render();
-  if (window.scrollY > 8) {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  // Re-rendering destroys the focused element; put keyboard users back in
+  // the card rather than at <body> (boot render excluded — no focus theft).
+  if (booted && current && document.activeElement === document.body) {
+    const l = stage.querySelector(".line");
+    if (l) l.focus({ preventScroll: true });
   }
+  pageTop();
 }
 
 function requeue(f) {
@@ -1619,6 +1943,503 @@ function answer(picked) {
   announce((right ? "Correct. " : "Incorrect. ") + "Line " + f.fault + " is the fault. " + f.ref);
 }
 
+/* ── mock exam ───────────────────────────────────────────────────
+   A different deck policy over the same bank: one pass, no hints,
+   no retries, no feedback until the end. Nothing here writes to
+   store.items, so an exam never disturbs drill mastery.        ── */
+const EXAM_DRAW = { implement: 6, ingest: 7, monitor: 7 };  // 30/35/35 of 20
+
+// Every paper is seeded. A bare visit gets a random seed; a challenge link
+// replays the challenger's exact draw and carries their score to beat.
+function startExam(spec) {
+  const usable = !!(spec && spec.seed && spec.seed[0] === SEED_VER);
+  const stale = !!(spec && spec.seed && !usable);   // a link from an older bank — never lie about "same paper"
+  const seed = usable ? spec.seed : newSeed();
+  const rng = mulberry32(seedInt(seed));
+  let picks = [];
+  Object.keys(EXAM_DRAW).forEach(d => {
+    const pool = seededShuffle(
+      FAULTS.filter(f => f.domain === d).sort((a, b) => (a.id < b.id ? -1 : 1)),
+      rng);
+    picks = picks.concat(pool.slice(0, EXAM_DRAW[d]));
+  });
+  if (!picks.length) {
+    stage.innerHTML =
+      '<article class="card"><div class="done"><h2>Nothing to examine</h2>' +
+      "<p>The fault bank is empty — see the browser console.</p></div></article>";
+    return;
+  }
+  exam = {
+    deck: seededShuffle(picks, rng),
+    at: 0,
+    answers: [],           // { id, right, sure }
+    t0: Date.now(),
+    pending: null,         // picked line awaiting the Sure / Not sure tap
+    seed: seed,
+    challenge: usable ? spec.score : null,
+    stale: stale
+  };
+  renderExam();
+  // The address bar always carries the current paper's seed. When we just
+  // corrected a stale link, replace the history entry so Back can escape it.
+  syncHash(stale);
+}
+
+function renderExam() {
+  if (!exam) { startExam(); return; }
+  if (exam.at >= exam.deck.length) { renderExamResult(); return; }
+
+  const f = exam.deck[exam.at];
+  const lines = f.lines.map((t, i) =>
+    '<button class="line" type="button" data-line="' + (i + 1) + '">' +
+      '<span class="line-no" aria-hidden="true">' + (i + 1) + "</span>" +
+      '<span class="line-code">' + code(t) + "</span>" +
+    "</button>"
+  ).join("");
+
+  stage.innerHTML =
+    '<article class="card fade-in">' +
+      '<div class="card-head">' +
+        '<div class="objective"><strong>' + esc(DOMAINS[f.domain].name) +
+          "</strong> <span>&nbsp;·&nbsp; " + esc(f.objective) + "</span></div>" +
+        (exam.challenge !== null
+          ? '<span class="again">beat ' + exam.challenge + "</span>"
+          : exam.stale
+          ? '<span class="again">challenge link expired — fresh paper</span>'
+          : "") +
+        '<div class="counter">question ' + (exam.at + 1) + " / " + exam.deck.length +
+          " · paper " + esc(exam.seed) + "</div>" +
+      "</div>" +
+      // The drill title stays out of the exam: several titles telegraph the
+      // faulty line, and the mock's claim is "no hints". It returns in the review.
+      '<div class="scenario"><h2>Question ' + (exam.at + 1) + "</h2><p>" + esc(f.scenario) + "</p></div>" +
+      '<div class="listing-label">' + esc(f.listing) + "</div>" +
+      '<div class="listing" role="group" aria-label="Configuration lines — choose the line at fault">' +
+        lines +
+      "</div>" +
+      '<div class="prompt" id="examprompt" tabindex="-1">' +
+        '<span class="q">Which line is at fault?</span>' +
+        '<span class="counter">no hints · no retries · scored at the end</span>' +
+      "</div>" +
+    "</article>";
+
+  stage.querySelectorAll(".line").forEach(b => {
+    b.addEventListener("click", () => examAnswer(Number(b.dataset.line)));
+  });
+
+  pageTop();
+  announce(
+    (exam.stale && exam.at === 0
+      ? "That challenge link was from an older fault bank, so this is a fresh paper. " : "") +
+    "Question " + (exam.at + 1) + " of " + exam.deck.length + ". " +
+    f.lines.length + " lines. Which line is at fault?");
+}
+
+// Phase 1: pick a line. The verdict stays hidden; the prompt becomes the
+// confidence question. Committing "sure or not" before the reveal is what
+// makes the calibration numbers honest — and it replaced a repaint timer,
+// so there is no async gap for state to race through.
+function examAnswer(picked) {
+  if (!exam || exam.pending !== null || exam.at >= exam.deck.length) return;
+  const f = exam.deck[exam.at];
+  if (!Number.isInteger(picked) || picked < 1 || picked > f.lines.length) return;
+
+  exam.pending = picked;
+  stage.querySelectorAll(".line").forEach(b => { b.disabled = true; });
+  const el = stage.querySelector('.line[data-line="' + picked + '"]');
+  if (el) {
+    el.dataset.mark = "picked-ok";
+    // neutral tag — this is NOT the drill's wrong-pick style doing double duty
+    const c = el.querySelector(".line-code");
+    if (c) c.insertAdjacentHTML("beforeend", '<span class="tag p">locked in</span>');
+  }
+
+  const p = document.getElementById("examprompt");
+  if (p) {
+    p.innerHTML =
+      '<span class="q">Line ' + picked + " — how sure are you?</span>" +
+      '<span class="counter">asked on every answer · the verdict still comes at the end</span>' +
+      '<button class="btn" type="button" id="conf-sure">Sure <kbd>1</kbd></button>' +
+      '<button class="btn" type="button" id="conf-unsure">Not sure <kbd>2</kbd></button>';
+    document.getElementById("conf-sure").addEventListener("click", () => examConfidence(true));
+    document.getElementById("conf-unsure").addEventListener("click", () => examConfidence(false));
+    // Focus the prompt, NOT the Sure button: drill-trained users reflexively
+    // press Enter after answering, and a focused default would silently record
+    // "Sure" — inflating the exact overconfidence stat this feature measures.
+    p.focus({ preventScroll: true });
+  }
+  announce("Line " + picked + " locked in — asked on every answer. How sure are you? 1 for sure, 2 for not sure.");
+}
+
+// Phase 2: the confidence tap records the answer and serves the next question.
+function examConfidence(sure) {
+  if (!exam || exam.pending === null) return;
+  const f = exam.deck[exam.at];
+  exam.answers.push({ id: f.id, right: exam.pending === f.fault, sure: !!sure });
+  exam.pending = null;
+  exam.at++;
+  renderExam();
+  const l = stage.querySelector(".line");   // keep keyboard flow anchored in the card
+  if (l && document.activeElement === document.body) l.focus({ preventScroll: true });
+}
+
+function renderExamResult() {
+  exam.done = true;   // a finished paper is never resumed — re-entry draws fresh
+  const total = exam.deck.length;
+  const right = exam.answers.filter(a => a.right).length;
+  const scaled = Math.round((right / total) * 1000);
+  const pass = scaled >= 700;
+  const secs = Math.max(1, Math.round((Date.now() - exam.t0) / 1000));
+  const took = Math.floor(secs / 60) + "m " + String(secs % 60).padStart(2, "0") + "s";
+
+  store.examRuns += 1;
+  if (scaled > store.examBest) store.examBest = scaled;
+  writeStore();
+
+  // Calibration: the split that predicts an exam result better than the score.
+  const sureRight   = exam.answers.filter(a => a.sure && a.right).length;
+  const sureWrong   = exam.answers.filter(a => a.sure && !a.right).length;
+  const unsureRight = exam.answers.filter(a => !a.sure && a.right).length;
+  const sureN = sureRight + sureWrong;
+  const calib =
+    "Sure on " + sureN + (sureN ? " — " + sureRight + " right (" + Math.round((sureRight / sureN) * 100) + "%)" : "") +
+    ". Not sure on " + (total - sureN) +
+    (total - sureN ? " — " + unsureRight + " right" : "") + "." +
+    (sureWrong ? " <strong>" + sureWrong + " confident miss" + (sureWrong === 1 ? "" : "es") +
+      "</strong> — misconceptions, not gaps. Drill those first." : " No confident misses.");
+
+  const rows = Object.keys(DOMAINS).map(k => {
+    const got = exam.answers.filter(a => { const f = byId(a.id); return f && f.domain === k; });
+    if (!got.length) return "";
+    const r = got.filter(a => a.right).length;
+    return "<tr><td>" + esc(DOMAINS[k].name) + '</td><td class="num">' + r + " / " + got.length +
+      '</td><td class="num">' + Math.round((r / got.length) * 100) + "%</td></tr>";
+  }).join("");
+
+  // Review confidently-wrong first: those are the dangerous ones.
+  const missedAnswers = exam.answers.filter(a => !a.right)
+    .sort((a, b) => (b.sure ? 1 : 0) - (a.sure ? 1 : 0));
+  const review = missedAnswers.map(a => {
+    const f = byId(a.id);
+    if (!f) return "";
+    const bare = f.lines[f.fault - 1].replace(/\s*#cm\([\s\S]*\)\s*$/, "");
+    return '<div class="review-item"><h3>' + esc(f.title) +
+      (a.sure ? '<span class="tag a">you were sure</span>' : "") + "</h3>" +
+      '<p class="review-line"><span class="ln">line ' + f.fault + "</span><em>" + esc(bare) + "</em></p>" +
+      '<p class="why">' + f.why + "</p>" +
+      '<p class="review-ref">' + esc(f.ref) + "</p></div>";
+  }).join("");
+  const missed = missedAnswers.length;
+
+  // Four-glyph trace: 🟩 sure+right, 🟨 unsure+right, 🟧 unsure+wrong, 🟥 sure+wrong.
+  const trace = exam.answers.map(a =>
+    a.right ? (a.sure ? "🟩" : "🟨") : (a.sure ? "🟥" : "🟧")).join("");
+
+  // Head-to-head, when this paper arrived as a challenge.
+  const duel = exam.challenge !== null
+    ? (scaled > exam.challenge ? "They scored " + exam.challenge + " — you take it by " + (scaled - exam.challenge) + "."
+       : scaled < exam.challenge ? "They scored " + exam.challenge + " — they hold it by " + (exam.challenge - scaled) + "."
+       : "They scored " + exam.challenge + " too — dead heat.")
+    : "";
+
+  const challengeUrl = SITE + "#exam=" + exam.seed + "~" + scaled;
+
+  stage.innerHTML =
+    '<article class="card fade-in"><div class="done">' +
+      "<h2>" + scaled + " / 1000 — " + (pass ? "pass" : "not yet") + "</h2>" +
+      "<p>" + right + " of " + total + " faults found in " + took + ". The bar is 700 — " +
+        (pass ? (scaled === 700 ? "met exactly, nothing to spare." : "cleared by " + (scaled - 700) + ".")
+              : (700 - scaled) + " short. The misses below are the revision list.") +
+        (duel ? " <strong>" + duel + "</strong>" : "") +
+        (store.examRuns > 1 ? " Best so far: " + store.examBest + "." : "") + "</p>" +
+      "<p>" + calib + "</p>" +
+      '<p class="trace" aria-hidden="true">' + trace + "</p>" +
+      '<p class="review-ref">🟩 sure &amp; right · 🟨 unsure &amp; right · 🟧 unsure &amp; wrong · 🟥 sure &amp; wrong</p>' +
+      '<p class="review-ref">Anyone who opens <em>' + esc(challengeUrl) + "</em> sits this exact paper against your score.</p>" +
+      '<table class="sumtable"><thead><tr><th scope="col">Domain</th><th class="num" scope="col">Correct</th>' +
+        '<th class="num" scope="col">Rate</th></tr></thead><tbody>' + rows + "</tbody></table>" +
+      (missed
+        ? '<div class="review"><span class="eyebrow">What you missed — confident misses first</span>' + review + "</div>"
+        : "") +
+      '<div class="verdict-foot">' +
+        '<span class="ref">' + (missed
+          ? "Read the misses above before you retake — confident ones first."
+          : "Perfect paper. Copy the card and dare someone to match it.") + "</span>" +
+        '<button class="btn" type="button" id="examshare">Copy result card</button>' +
+        '<button class="btn" type="button" id="examsame">Retake this paper</button>' +
+        '<button class="btn primary" type="button" id="examretake">New paper</button>' +
+      "</div>" +
+    "</div></article>";
+
+  const share = document.getElementById("examshare");
+  share.addEventListener("click", () => copyText(
+    ["Misconfigured — DP-700 mock exam · paper " + exam.seed, trace,
+     "Score " + scaled + "/1000 — " + (pass ? "PASS ✅" : "NOT YET ❌") + " · " + took +
+       (sureWrong ? " · " + sureWrong + " confident miss" + (sureWrong === 1 ? "" : "es") : ""),
+     (exam.challenge !== null ? "Head-to-head: them " + exam.challenge + " · me " + scaled + "\n" : "") +
+       "Beat me on the same paper: " + challengeUrl].join("\n"), share));
+  document.getElementById("examsame").addEventListener("click", () => startExam({ seed: exam.seed, score: null }));
+  document.getElementById("examretake").addEventListener("click", () => startExam());
+
+  announce("Exam finished. Score " + scaled + " out of 1000. " +
+    (pass ? "That clears the 700 bar. " : "The bar is 700. ") +
+    (sureWrong ? sureWrong + " confident misses to review." : "No confident misses."));
+}
+
+/* ── field guide ─────────────────────────────────────────────────
+   The 32 takeaway rules as a searchable index. The rules are the
+   distillate of the bank — surfacing them makes the tool useful
+   the night before, not just during a drill.                   ── */
+function renderGuide() {
+  stage.innerHTML =
+    '<article class="card fade-in"><div class="guide">' +
+      "<h2>Field guide</h2>" +
+      '<p class="guide-sub">One rule per fault — the line you should walk into the exam holding. ' +
+      "Search them, filter by domain with the meters, or drill the fault behind any rule.</p>" +
+      '<input class="guide-search" id="gq" type="search" ' +
+        'placeholder="Search rules — try &quot;watermark&quot;, &quot;VACUUM&quot;, &quot;Viewer&quot;…" ' +
+        'value="' + esc(guideQuery) + '" aria-label="Search rules">' +
+      '<p class="guide-count" id="guidecount" aria-live="polite"></p>' +   // outside the replaced list so SR users hear filter results
+      '<div id="guidelist"></div>' +
+    "</div></article>";
+  document.getElementById("gq").addEventListener("input", e => {
+    guideQuery = e.target.value;
+    renderGuideList();
+  });
+  renderGuideList();
+  announce("Field guide. " + FAULTS.length + " rules, searchable.");
+}
+
+function renderGuideList() {
+  const el = document.getElementById("guidelist");
+  if (!el) return;
+  const strip = s => String(s).replace(/<[^>]*>/g, " ");
+  const q = guideQuery.trim().toLowerCase();
+  const rows = FAULTS
+    .filter(f => !filter || f.domain === filter)
+    .filter(f => !q ||
+      (f.title + " " + f.ref + " " + f.objective + " " + strip(f.why)).toLowerCase().indexOf(q) !== -1);
+
+  const count = document.getElementById("guidecount");
+  if (count) count.textContent = rows.length + " of " + FAULTS.length + " rules";
+
+  el.innerHTML =
+    (rows.length ? rows.map(f => {
+      const r = rec(f.id);
+      const dot = r.f === 1 ? "pass" : r.c === 1 ? "amber" : "";
+      const status = r.f === 1 ? "found first try" : r.c === 1 ? "found on retry" : "not yet drilled";
+      return '<div class="rule"><div>' +
+        '<p class="rule-ref"><span class="dot ' + dot + '" aria-hidden="true"></span>' +
+          '<span class="sr">' + status + ": </span>" + esc(f.ref) + "</p>" +
+        '<p class="rule-meta">' + esc(DOMAINS[f.domain].name) + " · " + esc(f.objective) + "</p>" +
+        '<p class="rule-title">' + esc(f.title) + "</p></div>" +
+        '<button class="btn" type="button" data-drill="' + esc(f.id) + '">Drill it</button>' +
+        "</div>";
+    }).join("") : '<p class="rule-title">Nothing matches — try a shorter term.</p>');
+
+  el.querySelectorAll("[data-drill]").forEach(b => {
+    b.addEventListener("click", () => drillOne(b.dataset.drill));
+  });
+}
+
+function drillOne(id) {
+  const f = byId(id);
+  if (!f) return;
+  mode = "drill";
+  syncHash();
+  paintTabs();
+  paintPremise();
+  deck = [f];        // serve this fault first; normal flow resumes after it
+  lastId = null;
+  buildMeters();
+  advance();
+}
+
+/* ── daily fault ─────────────────────────────────────────────────
+   One entry per UTC day, same for everyone — the deterministic
+   permutation depends only on the bank and SEED_VER. The bank has
+   32 entries, so the cycle wraps monthly (disclosed in the README).
+   Wrong picks stay open: pick again until found, tries counted. ── */
+const DAILY_EPOCH = Date.UTC(2026, 7, 28);   // Daily #1
+
+function dailyDay() {
+  return Math.max(0, Math.floor((Date.now() - DAILY_EPOCH) / 86400000));
+}
+
+function dailyEntry(day) {
+  if (!FAULTS.length) return null;
+  const order = seededShuffle(
+    FAULTS.slice().sort((a, b) => (a.id < b.id ? -1 : 1)),
+    mulberry32(seedInt("daily-" + SEED_VER)));
+  return order[day % order.length];
+}
+
+function dailyState() {
+  const day = dailyDay();
+  if (store.daily && store.daily.day === day &&
+      Array.isArray(store.daily.wrong)) return store.daily;
+  return { day: day, tries: 0, done: false, wrong: [] };
+}
+
+// The day whose card is actually on screen. If UTC midnight passes while the
+// tab sits open, a click must redraw today's card — never score against a
+// fault the user did not see.
+let dailyShown = null;
+
+function renderDaily() {
+  const st = dailyState();
+  dailyShown = st.day;
+  const f = dailyEntry(st.day);
+  if (!f) {
+    stage.innerHTML =
+      '<article class="card"><div class="done"><h2>Nothing to serve</h2>' +
+      "<p>The fault bank is empty — see the browser console.</p></div></article>";
+    return;
+  }
+
+  const lines = f.lines.map((t, i) => {
+    const L = i + 1;
+    const wrong = st.wrong.indexOf(L) !== -1;
+    const mark = st.done
+      ? (L === f.fault ? "fault" : wrong ? "picked-ok" : "ok")
+      : (wrong ? "picked-ok" : "");
+    return '<button class="line" type="button" data-line="' + L + '"' +
+      (st.done || wrong ? " disabled" : "") + (mark ? ' data-mark="' + mark + '"' : "") + ">" +
+      '<span class="line-no" aria-hidden="true">' + L + "</span>" +
+      '<span class="line-code">' + code(t) +
+        (st.done && L === f.fault ? '<span class="tag f">fault</span>' : "") +
+      "</span></button>";
+  }).join("");
+
+  const holds = f.holds.slice().sort((a, b) => a.line - b.line)
+    .map(h => '<li><span class="ln">' + h.line + "</span><span>" + h.text + "</span></li>").join("");
+  const nextIn = Math.max(1, Math.ceil((DAILY_EPOCH + (st.day + 1) * 86400000 - Date.now()) / 3600000));
+
+  stage.innerHTML =
+    '<article class="card fade-in">' +
+      '<div class="card-head">' +
+        '<div class="objective"><strong>' + esc(DOMAINS[f.domain].name) +
+          "</strong> <span>&nbsp;·&nbsp; " + esc(f.objective) + "</span></div>" +
+        '<div class="counter">daily #' + (st.day + 1) +
+          (store.dailyStreak > 1 ? " · streak " + store.dailyStreak : "") + "</div>" +
+      "</div>" +
+      '<div class="scenario"><h2>' + esc(f.title) + "</h2><p>" + esc(f.scenario) + "</p></div>" +
+      '<div class="listing-label">' + esc(f.listing) + "</div>" +
+      '<div class="listing" role="group" aria-label="Configuration lines — choose the line at fault">' +
+        lines +
+      "</div>" +
+      (st.done
+        ? '<div class="verdict" data-state="pass">' +
+            '<div class="verdict-head"><h3>' +
+              (st.tries === 1 ? "Found first try" : "Found in " + st.tries + " tries") + "</h3>" +
+              '<span class="where">line ' + f.fault + " is the fault · next fault in ~" + nextIn +
+              "h · the 32-fault bank laps monthly</span></div>" +
+            '<p class="why">' + f.why + "</p>" +
+            '<div class="holds"><span class="eyebrow">Why the other lines hold</span><ul>' + holds + "</ul></div>" +
+            '<div class="verdict-foot">' +
+              '<span class="ref">' + esc(f.ref) + "</span>" +
+              '<button class="btn primary" type="button" id="dailyshare">Copy daily card</button>' +
+            "</div>" +
+          "</div>"
+        : '<div class="prompt">' +
+            '<span class="q">Which line is at fault?</span>' +
+            '<span class="counter">everyone gets this fault today · wrong picks stay counted</span>' +
+          "</div>") +
+    "</article>";
+
+  if (st.done) {
+    const b = document.getElementById("dailyshare");
+    b.addEventListener("click", () => copyText(
+      ["Misconfigured — Daily Fault #" + (st.day + 1),
+       "🟥".repeat(Math.max(0, st.tries - 1)) + "🟩 " +
+         (st.tries === 1 ? "first try" : "found in " + st.tries + " tries") +
+         (store.dailyStreak > 1 ? " · streak " + store.dailyStreak : ""),
+       SITE + "#daily"].join("\n"), b));
+  } else {
+    stage.querySelectorAll(".line").forEach(b => {
+      b.addEventListener("click", () => dailyAnswer(Number(b.dataset.line)));
+    });
+  }
+
+  announce(st.done
+    ? "Daily fault " + (st.day + 1) + " — " +
+      (st.tries === 1 ? "found first try" : "found in " + st.tries + " tries") +
+      ". Next one in about " + nextIn + " hours."
+    : "Daily fault " + (st.day + 1) + ". " + f.title + ". " + f.lines.length + " lines.");
+}
+
+function dailyAnswer(picked) {
+  if (dailyShown !== dailyDay()) { renderDaily(); return; }   // midnight rolled over — redraw, don't score
+  const st = dailyState();
+  if (st.done) return;
+  const f = dailyEntry(st.day);
+  if (!f || !Number.isInteger(picked) || picked < 1 || picked > f.lines.length) return;
+  if (st.wrong.indexOf(picked) !== -1) return;
+
+  st.tries++;
+  if (picked === f.fault) {
+    st.done = true;
+    store.dailyStreak = store.dailyLastDay === st.day - 1 ? store.dailyStreak + 1 : 1;
+    if (store.dailyStreak > store.dailyBest) store.dailyBest = store.dailyStreak;
+    store.dailyLastDay = st.day;
+  } else {
+    st.wrong.push(picked);
+  }
+  store.daily = st;
+  writeStore();
+  renderDaily();
+  if (!st.done) announce("Not line " + picked + " — try again.");
+}
+
+/* ── share card ──────────────────────────────────────────────────
+   A result grid that pastes cleanly into Discord. The card is the
+   ad: 🟩 first try, 🟨 took a second look, ⬜ untouched.       ── */
+function drillShareText() {
+  const out = ["Misconfigured — DP-700 fault drill"];
+  Object.keys(DOMAINS).forEach(k => {
+    const all = FAULTS.filter(f => f.domain === k);
+    if (!all.length) return;
+    const cells = all.map(f => {
+      const r = rec(f.id);
+      return r.f === 1 ? "🟩" : r.c === 1 ? "🟨" : "⬜";
+    }).join("");
+    const first = all.filter(f => rec(f.id).f === 1).length;
+    out.push(cells + " " + DOMAINS[k].name + " — " + first + "/" + all.length + " first try");
+  });
+  const found = FAULTS.filter(f => rec(f.id).c === 1).length;
+  const first = FAULTS.filter(f => rec(f.id).f === 1).length;
+  out.push(found + "/" + FAULTS.length + " found · " + first + " first try · best streak " + store.best);
+  if (store.examBest) out.push("Mock exam best: " + store.examBest + "/1000");
+  out.push(SITE);
+  return out.join("\n");
+}
+
+function copyText(text, btn) {
+  const label = btn.textContent;
+  const done = () => {
+    btn.textContent = "Copied — paste it in Discord";
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = label; btn.disabled = false; }, 2400);
+    announce("Result card copied to the clipboard.");
+  };
+  const fail = () => { btn.textContent = "Copy failed"; setTimeout(() => { btn.textContent = label; }, 2400); };
+  const legacy = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { /* fall through */ }
+    document.body.removeChild(ta);
+    ok ? done() : fail();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, legacy);
+  } else legacy();
+}
+
 /* ── summary ─────────────────────────────────────────────────── */
 function renderSummary() {
   // Clear the repeat guard: from here, an explicit "next" should be
@@ -1647,8 +2468,8 @@ function renderSummary() {
         ? "Every one on the first look. That is the standard the exam asks for."
         : first + " of them first time. The rest took a second pass, which is exactly what the retry queue is for.") +
         " Best streak this browser: " + store.best + ".</p>" +
-      '<table class="sumtable"><thead><tr><th>Domain</th><th class="num">Found</th>' +
-        '<th class="num">First try</th><th class="num">Rate</th></tr></thead>' +
+      '<table class="sumtable"><thead><tr><th scope="col">Domain</th><th class="num" scope="col">Found</th>' +
+        '<th class="num" scope="col">First try</th><th class="num" scope="col">Rate</th></tr></thead>' +
         "<tbody>" + rows + "</tbody>" +
         '<tfoot><tr><td>Total</td><td class="num">' + found + " / " + scope.length +
           '</td><td class="num">' + first + '</td><td class="num">' +
@@ -1659,11 +2480,17 @@ function renderSummary() {
           "</ul></div>"
         : "") +
       '<div class="verdict-foot">' +
-        '<span class="ref">Pick a single domain in the rail to drill it alone, or run the set again from scratch.</span>' +
+        '<span class="ref">Copy the card and paste it in Discord — 🟩 first try, 🟨 second look, ⬜ untouched. Then find out if you would pass.</span>' +
+        '<button class="btn" type="button" id="sharebtn">Copy result card</button>' +
         (missed.length ? '<button class="btn" type="button" id="drillmissed">Drill these ' + missed.length + '</button>' : "") +
+        '<button class="btn" type="button" id="examfromsum">Mock exam</button>' +
         '<button class="btn primary" type="button" id="againbtn">Run it again</button>' +
       "</div>" +
     "</div></article>";
+
+  const sb = document.getElementById("sharebtn");
+  sb.addEventListener("click", () => copyText(drillShareText(), sb));
+  document.getElementById("examfromsum").addEventListener("click", () => nav("exam"));
 
   const dm = document.getElementById("drillmissed");
   if (dm) dm.addEventListener("click", () => {
@@ -1706,10 +2533,18 @@ resetBtn.addEventListener("click", () => {
   store.items = {};
   store.streak = 0;
   store.best = 0;
+  store.examBest = 0;
+  store.examRuns = 0;
+  store.daily = null;
+  store.dailyStreak = 0;
+  store.dailyBest = 0;
+  store.dailyLastDay = -1;
   writeStore();
   paintRail();
   deck = [];
-  advance();
+  if (mode === "drill") advance();
+  else if (mode === "guide") renderGuideList();   // exam in flight keeps running; its result rewrites the store
+  else if (mode === "daily") renderDaily();
   announce("Progress erased.");
 });
 
@@ -1719,10 +2554,22 @@ document.addEventListener("keydown", e => {
   const tag = (t.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || t.isContentEditable) return;
 
-  // digit → flag that line
-  if (!answered && current && e.key >= "1" && e.key <= "9") {
+  // digit → answer a line; in the exam's confidence beat, 1/2 = Sure/Not sure
+  if (e.key >= "1" && e.key <= "9") {
     const n = Number(e.key);
-    if (n <= current.lines.length) { e.preventDefault(); answer(n); }
+    if (mode === "drill" && !answered && current && n <= current.lines.length) {
+      e.preventDefault(); answer(n);
+    } else if (mode === "exam" && exam && exam.at < exam.deck.length) {
+      if (exam.pending !== null) {
+        if (n === 1) { e.preventDefault(); examConfidence(true); }
+        else if (n === 2) { e.preventDefault(); examConfidence(false); }
+      } else if (n <= exam.deck[exam.at].lines.length) {
+        e.preventDefault(); examAnswer(n);
+      }
+    } else if (mode === "daily") {
+      const f = dailyEntry(dailyState().day);
+      if (f && n <= f.lines.length) { e.preventDefault(); dailyAnswer(n); }
+    }
     return;
   }
 
@@ -1739,6 +2586,7 @@ document.addEventListener("keydown", e => {
     return;
   }
 
+  if (mode !== "drill") return;   // hint/skip/advance are drill-only verbs
   const k = e.key.toLowerCase();
   if (k === "h" && !answered) { e.preventDefault(); showHint(); }
   if (k === "n") {
@@ -1752,18 +2600,55 @@ document.addEventListener("keydown", e => {
   }
 });
 
-window.addEventListener("hashchange", () => {
+// "#exam" | "#exam=seed~score" | "#daily" | "#guide" | "#<domain>" | ""
+function parseHash() {
   const k = location.hash.replace(/^#/, "");
-  const want = DOMAINS[k] ? k : null;
-  if (want !== filter) setFilter(want);
+  if (k === "exam") return { m: "exam", spec: null };
+  if (k.indexOf("exam=") === 0) return { m: "exam", spec: parseExamSpec(k.slice(5)) };
+  if (k === "guide") return { m: "guide" };
+  if (k === "daily") return { m: "daily" };
+  // own-property check: "#constructor" must not become a phantom domain filter
+  return { m: "drill", f: Object.prototype.hasOwnProperty.call(DOMAINS, k) ? k : null };
+}
+
+window.addEventListener("hashchange", () => {
+  const h = parseHash();
+  // Already there? (syncHash writes seed AND rider into the hash, which fires
+  // this — but a same-seed spec with a NEW score is a real counter-challenge.)
+  if (h.m === mode) {
+    if (h.m === "drill" && h.f === filter) return;
+    if (h.m === "exam" && (!h.spec ||
+        (exam && h.spec.seed === exam.seed &&
+         (h.spec.score === null || h.spec.score === exam.challenge)))) return;
+    if (h.m === "guide" || h.m === "daily") return;
+  }
+  mode = h.m;
+  if (h.m === "drill") filter = h.f;
+  paintTabs();
+  paintPremise();
+  buildMeters();
+  if (h.m === "exam") resumeOrStartExam(h.spec);
+  else if (h.m === "drill") { deck = []; advance(); }
+  else renderMode();
+});
+
+document.querySelectorAll(".mode-tab").forEach(b => {
+  b.addEventListener("click", () => nav(b.dataset.mode));
 });
 
 /* ── boot ────────────────────────────────────────────────────── */
 renderNotice();
-(function () {
-  const k = location.hash.replace(/^#/, "");
-  if (DOMAINS[k]) filter = k;
-})();
+const BOOT = parseHash();
+mode = BOOT.m;
+if (BOOT.m === "drill") filter = BOOT.f;
 buildMeters();
-advance();
+paintTabs();
+paintPremise();
+if (mode === "exam") startExam(BOOT.spec);
+else if (mode === "drill") advance();
+else renderMode();
+booted = true;
 </script>
+
+</body>
+</html>
